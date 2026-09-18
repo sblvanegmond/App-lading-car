@@ -32,8 +32,13 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Iconen genereren
+        run: npm run icons
       - uses: actions/configure-pages@v5
-      - name: Alleen de app uploaden
+      - name: De app uploaden
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'

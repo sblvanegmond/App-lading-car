@@ -6,8 +6,10 @@
   "private": true,
   "scripts": {
     "test": "node --test tests/*.test.js",
+    "icons": "node tools/make-icons.js",
+    "prestart": "node tools/make-icons.js",
     "start": "node tools/serve.js",
-    "icons": "python3 tools/make-icons.py"
+    "build": "node tools/make-icons.js"
   },
   "license": "MIT"
 }

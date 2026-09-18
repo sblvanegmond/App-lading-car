@@ -2,3 +2,7 @@ node_modules/
 package-lock.json
 .DS_Store
 *.log
+
+# De iconen worden gegenereerd door tools/make-icons.js (npm run icons).
+# Ze staan bewust niet in git: de generator is de bron.
+icons/*.png

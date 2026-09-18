@@ -38,7 +38,7 @@ hoofdbranch publiceert de app op `https://<gebruiker>.github.io/<repo>/`.
 Wil je hem eerst lokaal bekijken:
 
 ```bash
-npm start           # http://localhost:8080
+npm start           # genereert de iconen en start http://localhost:8080
 ```
 
 Op `localhost` werkt alles, inclusief de service worker. Om de app echt te
@@ -138,7 +138,7 @@ exclusief btw, en vervangt `{from}` en `{till}` door ISO-tijdstempels.
 ```bash
 npm test      # 53 tests op de reken- en parseerlogica, zonder netwerk
 npm start     # lokale server op poort 8080
-npm run icons # genereert de app-iconen opnieuw
+npm run icons # genereert de app-iconen (gebeurt ook bij npm start)
 ```
 
 Een end-to-end test die de echte app in Chromium laadt met nagebootste
@@ -162,9 +162,14 @@ node tools/smoke.mjs /tmp/laadmoment     # maakt ook schermafbeeldingen
 | `js/app.js` | Bedrading: knoppen, formulier, verversen |
 | `js/ics.js` | Agenda-export |
 | `sw.js` | Offline gebruik en achtergrondmelding |
+| `tools/make-icons.js` | Tekent de app-iconen en schrijft ze als PNG weg |
 
 De reken- en parseerlogica staat bewust los van de DOM, zodat het met
 `node --test` te testen is zonder browser en zonder netwerk.
+
+De PNG-iconen staan niet in git: `tools/make-icons.js` tekent ze en schrijft
+ze zelf weg, zonder externe bibliotheek. `npm start` en de publicatie-workflow
+roepen dat script automatisch aan.
 
 ## Nauwkeurigheid
 
