@@ -25,19 +25,22 @@ De app moet op HTTPS staan, anders staat je telefoon niet toe dat je hem
 installeert. GitHub Pages doet dat gratis, en er zit een workflow in die het
 werk doet.
 
-De workflow probeert Pages zelf aan te zetten. Lukt dat niet, dan zet je het
-met de hand aan:
+Pages moet één keer met de hand aangezet worden. Een workflow mag dat niet
+zelf doen; zolang het uit staat stopt de publicatie met *Create Pages site
+failed: Resource not accessible by integration*. Dat is dus geen fout in de
+app.
 
 1. Ga in je repository naar **Settings → Pages**.
-2. Zet bij *Build and deployment* de bron op **GitHub Actions** en draai de
-   workflow opnieuw via **Actions → Publiceren op GitHub Pages → Run
-   workflow**.
-3. De workflow `.github/workflows/pages.yml` publiceert vanaf de
-   **standaardbranch** van je repository. Wil je een andere branch, wijs die
-   dan aan onder **Settings → General → Default branch**; de workflow volgt
-   vanzelf mee.
+2. Zet bij *Build and deployment* de bron op **GitHub Actions**.
+3. Draai de publicatie opnieuw via **Actions → Publiceren op GitHub Pages →
+   Run workflow**. Vanaf nu gaat elke push vanzelf.
 4. Na een minuut of twee staat de app op
    `https://<jouw-gebruikersnaam>.github.io/App-lading-car/`.
+
+De workflow publiceert vanaf de **standaardbranch** van je repository. Nu is
+dat `claude/app-laadmomenten-optimizer-xw4032`, omdat dat de eerste branch
+was. Wil je hem `main` noemen, hernoem hem dan onder **Settings → General →
+Default branch**; de workflow volgt vanzelf mee.
 
 Twee dingen die aan de standaardbranch vastzitten: Pages publiceert er
 vanaf, en geplande workflows zoals de ochtendmelding draaien alleen daar.
