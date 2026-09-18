@@ -566,8 +566,10 @@ async function start() {
       console.warn('Service worker niet geregistreerd:', err);
     }
   }
-  // Only meaningful once the service worker is up, so this comes last.
-  await refreshPushState();
+  // Only meaningful once the service worker is up. Deliberately not awaited:
+  // without a service worker this settles late, and the timer below should
+  // not wait for it.
+  refreshPushState();
   // Keep clocks and the "now" marker honest while the app stays open.
   setInterval(() => recompute(), 5 * 60 * 1000);
 }

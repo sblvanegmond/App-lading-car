@@ -53,6 +53,28 @@ export function pushSupport(nav = globalThis.navigator, win = globalThis) {
   return { supported: reason === null, standalone, iOSLike, reason };
 }
 
+
+/**
+ * `navigator.serviceWorker.ready` never resolves when no service worker is
+ * registered, which is exactly what happens over plain http on a local
+ * network. Waiting on it forever would stall the rest of the app, so every
+ * caller here goes through this bounded wait.
+ */
+export async function readyRegistration(timeoutMs = 4000) {
+  if (!('serviceWorker' in navigator)) return null;
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(null), timeoutMs);
+  });
+  try {
+    return await Promise.race([navigator.serviceWorker.ready, timeout]);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Ask permission and register with the browser's push service.
  *
@@ -69,7 +91,13 @@ export async function subscribeToPush(vapidPublicKey) {
     throw new Error('Meldingen zijn geweigerd. Zet ze aan in de instellingen van je telefoon.');
   }
 
-  const registration = await navigator.serviceWorker.ready;
+  const registration = await readyRegistration();
+  if (!registration) {
+    throw new Error(
+      'De service worker draait niet. Open de app via https of via localhost, ' +
+        'niet via een gewoon http-adres in je netwerk.',
+    );
+  }
   const existing = await registration.pushManager.getSubscription();
   if (existing) {
     // A subscription made with a different key can never be delivered to.
@@ -94,16 +122,15 @@ function sameKey(a, b) {
 }
 
 export async function unsubscribeFromPush() {
-  if (!('serviceWorker' in navigator)) return false;
-  const registration = await navigator.serviceWorker.ready;
-  const existing = await registration.pushManager.getSubscription();
+  const registration = await readyRegistration();
+  const existing = await registration?.pushManager?.getSubscription();
   if (!existing) return false;
   return existing.unsubscribe();
 }
 
 export async function currentSubscription() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
-  const registration = await navigator.serviceWorker.ready;
-  const existing = await registration.pushManager.getSubscription();
+  if (!('PushManager' in globalThis)) return null;
+  const registration = await readyRegistration();
+  const existing = await registration?.pushManager?.getSubscription();
   return existing ? existing.toJSON() : null;
 }

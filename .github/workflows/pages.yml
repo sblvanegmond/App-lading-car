@@ -41,6 +41,10 @@ jobs:
       - name: Iconen genereren
         run: npm run icons
       - uses: actions/configure-pages@v5
+        # Zet Pages zo nodig zelf aan, zodat de eerste publicatie niet
+        # struikelt over een instelling die nog uit staat.
+        with:
+          enablement: true
       - name: De app uploaden
         uses: actions/upload-pages-artifact@v3
         with:

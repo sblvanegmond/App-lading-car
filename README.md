@@ -25,8 +25,13 @@ De app moet op HTTPS staan, anders staat je telefoon niet toe dat je hem
 installeert. GitHub Pages doet dat gratis, en er zit een workflow in die het
 werk doet.
 
+De workflow probeert Pages zelf aan te zetten. Lukt dat niet, dan zet je het
+met de hand aan:
+
 1. Ga in je repository naar **Settings → Pages**.
-2. Zet bij *Build and deployment* de bron op **GitHub Actions**.
+2. Zet bij *Build and deployment* de bron op **GitHub Actions** en draai de
+   workflow opnieuw via **Actions → Publiceren op GitHub Pages → Run
+   workflow**.
 3. De workflow `.github/workflows/pages.yml` publiceert vanaf de
    **standaardbranch** van je repository. Wil je een andere branch, wijs die
    dan aan onder **Settings → General → Default branch**; de workflow volgt
