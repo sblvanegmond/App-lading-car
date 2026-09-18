@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Laadmoment</title>
+<meta name="description" content="De beste momenten om je auto te laden, op basis van dynamische stroomprijzen, de zon boven Grootegast en de capaciteit van je zonnepanelen." />
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#f7f7f5" media="(prefers-color-scheme: light)" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Laadmoment" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="topbar__title">
+      <h1>Laadmoment</h1>
+      <p id="status-line" class="topbar__status">Gegevens laden…</p>
+    </div>
+    <button id="refresh" class="icon-button" type="button" aria-label="Gegevens verversen">
+      <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22"><path d="M20 11a8 8 0 1 0-.6 3.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 4.5V11h-6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </header>
+
+  <main id="main">
+
+    <!-- ---------------- Vandaag ---------------- -->
+    <section id="view-vandaag" class="view" aria-labelledby="tab-vandaag">
+      <div id="messages" class="messages" role="status" aria-live="polite"></div>
+
+      <article id="hero" class="card card--hero">
+        <p class="card__eyebrow">Beste laadmoment</p>
+        <p id="hero-window" class="hero__window">—</p>
+        <p id="hero-sub" class="hero__sub">Nog geen plan berekend.</p>
+        <dl id="hero-stats" class="hero__stats"></dl>
+        <div class="hero__actions">
+          <button id="add-calendar" class="button button--primary" type="button">Zet in agenda</button>
+          <button id="share-plan" class="button" type="button">Deel plan</button>
+        </div>
+      </article>
+
+      <article id="extra-blocks" class="card" hidden>
+        <h2 class="card__title">Overige laadblokken</h2>
+        <ul id="extra-blocks-list" class="blocklist"></ul>
+      </article>
+
+      <article class="card">
+        <h2 class="card__title">Zon boven <span id="location-name">Grootegast</span></h2>
+        <div id="solar-days" class="daygrid"></div>
+        <p id="solar-note" class="card__note"></p>
+      </article>
+
+      <article class="card">
+        <h2 class="card__title">Wat het oplevert</h2>
+        <div id="savings" class="savings"></div>
+      </article>
+
+      <article class="card">
+        <h2 class="card__title">Elke ochtend een seintje</h2>
+        <p class="card__note">
+          Zet de app op je beginscherm en kies hieronder een tijd. Op Android krijg je
+          dan een melding zodra het plan voor vandaag klaarstaat. Op de iPhone werkt een
+          agenda-afspraak het betrouwbaarst: gebruik de knop “Zet in agenda”.
+        </p>
+        <label class="field field--inline">
+          <input id="notify-enabled" type="checkbox" />
+          <span>Ochtendmelding aanzetten</span>
+        </label>
+        <label class="field">
+          <span class="field__label">Tijdstip melding</span>
+          <input id="notify-time" type="time" />
+        </label>
+        <p id="notify-status" class="card__note"></p>
+      </article>
+    </section>
+
+    <!-- ---------------- Uren ---------------- -->
+    <section id="view-uren" class="view" hidden aria-labelledby="tab-uren">
+      <article class="card">
+        <h2 class="card__title">Prijs en zon per uur</h2>
+        <p class="card__note">Blauw is de all-in prijs per kWh. Geel is wat je zonnepanelen naar verwachting overhouden na eigen huisverbruik. Gemarkeerde uren zijn de geplande laaduren.</p>
+        <div id="chart" class="chart-scroll"></div>
+        <p id="chart-readout" class="card__note" role="status" aria-live="polite">Tik op een uur voor de details.</p>
+        <div id="chart-legend" class="legend"></div>
+      </article>
+      <article class="card">
+        <h2 class="card__title">Alle uren</h2>
+        <div class="table-wrap">
+          <table id="hours-table" class="table">
+            <thead>
+              <tr><th scope="col">Uur</th><th scope="col">Prijs</th><th scope="col">Zon over</th><th scope="col">Plan</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <!-- ---------------- Instellingen ---------------- -->
+    <section id="view-instellingen" class="view" hidden aria-labelledby="tab-instellingen">
+      <form id="settings-form" autocomplete="off">
+
+        <article class="card">
+          <h2 class="card__title">Auto en laadpaal</h2>
+          <label class="field"><span class="field__label">Accucapaciteit (kWh)</span>
+            <input name="car.batteryKwh" type="number" min="5" max="200" step="0.5" inputmode="decimal" required /></label>
+          <label class="field"><span class="field__label">Laadvermogen (kW)</span>
+            <input name="car.chargerKw" type="number" min="1" max="22" step="0.1" inputmode="decimal" required /></label>
+          <label class="field"><span class="field__label">Minimaal laadvermogen (kW)</span>
+            <input name="car.minChargeKw" type="number" min="0.5" max="11" step="0.1" inputmode="decimal" />
+            <span class="field__hint">Onder deze grens weigert de auto te laden. 6 A op één fase is ongeveer 1,4 kW.</span></label>
+          <label class="field"><span class="field__label">Huidige accustand (%)</span>
+            <input name="car.currentSocPct" type="number" min="0" max="100" step="1" inputmode="numeric" required /></label>
+          <label class="field"><span class="field__label">Gewenste accustand (%)</span>
+            <input name="car.targetSocPct" type="number" min="0" max="100" step="1" inputmode="numeric" required /></label>
+          <label class="field"><span class="field__label">Laadverlies (%)</span>
+            <input name="car.chargeLossPct" type="number" min="0" max="30" step="1" inputmode="numeric" />
+            <span class="field__hint">Verlies in kabel, lader en accu. Bij wisselstroom is 8 tot 12 procent normaal.</span></label>
+          <label class="field"><span class="field__label">Klaar om</span>
+            <input name="readyBy" type="time" required /></label>
+        </article>
+
+        <article class="card">
+          <h2 class="card__title">Zonnepanelen</h2>
+          <div id="arrays"></div>
+          <div class="row">
+            <button id="add-array" class="button" type="button">Vlak toevoegen</button>
+          </div>
+          <label class="field"><span class="field__label">Omvormer maximaal (kW)</span>
+            <input name="pv.inverterKw" type="number" min="0" max="50" step="0.1" inputmode="decimal" />
+            <span class="field__hint">Laat leeg als je omvormer niet begrenst.</span></label>
+          <label class="field"><span class="field__label">Systeemrendement</span>
+            <input name="pv.performanceRatio" type="number" min="0.3" max="1" step="0.01" inputmode="decimal" />
+            <span class="field__hint">Verlies door kabels, vuil en omvormer. 0,86 is een realistische waarde.</span></label>
+          <label class="field"><span class="field__label">Basisverbruik huis (kW)</span>
+            <input name="houseBaseLoadKw" type="number" min="0" max="10" step="0.05" inputmode="decimal" />
+            <span class="field__hint">Wordt van de zonopbrengst afgetrokken voordat de auto aan de beurt is.</span></label>
+        </article>
+
+        <article class="card">
+          <h2 class="card__title">Strategie</h2>
+          <div id="mode-options" class="modes"></div>
+        </article>
+
+        <article class="card">
+          <h2 class="card__title">Tarieven</h2>
+          <p class="card__note">De marktprijs komt van de prijsbron. De opslagen hieronder maken er de prijs van die jij echt betaalt. Controleer ze één keer per jaar bij je energiecontract.</p>
+          <label class="field"><span class="field__label">Opslag leverancier (€/kWh)</span>
+            <input name="tariffs.supplierMarkupPerKwh" type="number" min="0" max="1" step="0.001" inputmode="decimal" /></label>
+          <label class="field"><span class="field__label">Energiebelasting (€/kWh, excl. btw)</span>
+            <input name="tariffs.energyTaxPerKwh" type="number" min="0" max="1" step="0.0001" inputmode="decimal" /></label>
+          <label class="field"><span class="field__label">Btw (%)</span>
+            <input name="tariffs.vatPct" type="number" min="0" max="30" step="1" inputmode="numeric" /></label>
+          <label class="field"><span class="field__label">Terugleververgoeding (€/kWh)</span>
+            <input name="tariffs.feedInPerKwh" type="number" min="0" max="1" step="0.001" inputmode="decimal" />
+            <span class="field__hint">Wat je krijgt voor stroom die je teruglevert. Hoe lager dit is, hoe aantrekkelijker het is om op eigen zon te laden.</span></label>
+          <label class="field field--inline">
+            <input name="tariffs.netMetering" type="checkbox" />
+            <span>Saldering geldt nog voor mij</span>
+          </label>
+          <p class="card__note">Met saldering is een zelf verbruikte kWh net zoveel waard als een teruggeleverde. De app geeft zon dan geen voorrang meer boven een goedkoop nachtuur.</p>
+        </article>
+
+        <article class="card">
+          <h2 class="card__title">Locatie en prijsbron</h2>
+          <label class="field"><span class="field__label">Plaats</span>
+            <input name="location.name" type="text" /></label>
+          <div class="row row--split">
+            <label class="field"><span class="field__label">Breedtegraad</span>
+              <input name="location.latitude" type="number" min="-90" max="90" step="0.0001" inputmode="decimal" /></label>
+            <label class="field"><span class="field__label">Lengtegraad</span>
+              <input name="location.longitude" type="number" min="-180" max="180" step="0.0001" inputmode="decimal" /></label>
+          </div>
+          <label class="field"><span class="field__label">Prijsbron</span>
+            <select name="prices.source">
+              <option value="energyzero">EnergyZero (standaard, geen account nodig)</option>
+              <option value="custom">Eigen endpoint</option>
+            </select></label>
+          <label class="field"><span class="field__label">Eigen endpoint</span>
+            <input name="prices.customUrl" type="url" placeholder="https://…/prices?from={from}&till={till}" />
+            <span class="field__hint">Moet prijzen in €/kWh exclusief btw teruggeven. {from} en {till} worden vervangen door ISO-tijdstempels.</span></label>
+        </article>
+
+        <article class="card">
+          <div class="row">
+            <button class="button button--primary" type="submit">Opslaan en herberekenen</button>
+            <button id="reset-settings" class="button button--quiet" type="button">Standaardwaarden</button>
+          </div>
+          <p id="settings-status" class="card__note"></p>
+        </article>
+      </form>
+    </section>
+  </main>
+
+  <nav class="tabbar" role="tablist" aria-label="Hoofdnavigatie">
+    <button id="tab-vandaag" class="tab is-active" role="tab" type="button" data-view="vandaag" aria-selected="true">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+      <span>Vandaag</span>
+    </button>
+    <button id="tab-uren" class="tab" role="tab" type="button" data-view="uren" aria-selected="false">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 20V10M10 20V5M16 20v-7M22 20H2" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+      <span>Uren</span>
+    </button>
+    <button id="tab-instellingen" class="tab" role="tab" type="button" data-view="instellingen" aria-selected="false">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 2.8v2.4M12 18.8v2.4M4.5 7.5l2 1.2M17.5 15.3l2 1.2M4.5 16.5l2-1.2M17.5 8.7l2-1.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+      <span>Instellingen</span>
+    </button>
+  </nav>
+</div>
+
+<template id="array-template">
+  <fieldset class="array">
+    <legend class="array__legend">Vlak</legend>
+    <label class="field"><span class="field__label">Naam</span>
+      <input data-key="label" type="text" /></label>
+    <div class="row row--split">
+      <label class="field"><span class="field__label">Vermogen (kWp)</span>
+        <input data-key="kWp" type="number" min="0" max="100" step="0.05" inputmode="decimal" /></label>
+      <label class="field"><span class="field__label">Hellingshoek (°)</span>
+        <input data-key="tilt" type="number" min="0" max="90" step="1" inputmode="numeric" /></label>
+    </div>
+    <label class="field"><span class="field__label">Richting</span>
+      <select data-key="azimuth">
+        <option value="0">Zuid</option>
+        <option value="-45">Zuidoost</option>
+        <option value="45">Zuidwest</option>
+        <option value="-90">Oost</option>
+        <option value="90">West</option>
+        <option value="-135">Noordoost</option>
+        <option value="135">Noordwest</option>
+        <option value="180">Noord</option>
+      </select></label>
+    <button class="button button--quiet array__remove" type="button">Vlak verwijderen</button>
+  </fieldset>
+</template>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

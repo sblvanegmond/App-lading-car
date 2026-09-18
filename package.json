@@ -1,0 +1,13 @@
+{
+  "name": "laadmoment",
+  "version": "1.0.0",
+  "description": "PWA die elke ochtend de beste laadmomenten voor je auto berekent op basis van dynamische stroomprijzen (NL), zonuren in Grootegast en de capaciteit van je zonnepanelen.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "start": "node tools/serve.js",
+    "icons": "python3 tools/make-icons.py"
+  },
+  "license": "MIT"
+}
