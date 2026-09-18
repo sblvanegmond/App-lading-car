@@ -30,8 +30,16 @@ zelf doen; zolang het uit staat stopt de publicatie met *Create Pages site
 failed: Resource not accessible by integration*. Dat is dus geen fout in de
 app.
 
-1. Ga in je repository naar **Settings → Pages**.
-2. Zet bij *Build and deployment* de bron op **GitHub Actions**.
+1. Ga naar de **Pages-instellingen van de repository**:
+   `https://github.com/<jouw-gebruikersnaam>/App-lading-car/settings/pages`
+
+   Let op: dit is niet hetzelfde als *Pages* in je accountinstellingen. Die
+   pagina gaat over geverifieerde domeinen en heeft hier niets mee te maken.
+   De goede pagina bereik je via de tab **Settings** bovenin de repository,
+   naast *Insights*, en dan in de linkerkolom onder *Code and automation* op
+   **Pages**.
+2. Zet onder *Build and deployment* de keuzelijst **Source** van *Deploy from
+   a branch* op **GitHub Actions**. Verder hoef je daar niets in te vullen.
 3. Draai de publicatie opnieuw via **Actions → Publiceren op GitHub Pages →
    Run workflow**. Vanaf nu gaat elke push vanzelf.
 4. Na een minuut of twee staat de app op
