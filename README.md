@@ -27,10 +27,16 @@ werk doet.
 
 1. Ga in je repository naar **Settings → Pages**.
 2. Zet bij *Build and deployment* de bron op **GitHub Actions**.
-3. Zorg dat je werk op de hoofdbranch staat (`main`). De workflow
-   `.github/workflows/pages.yml` draait dan de tests en publiceert de app.
-4. Na een minuut of twee staat hij op
+3. De workflow `.github/workflows/pages.yml` publiceert vanaf de
+   **standaardbranch** van je repository. Wil je een andere branch, wijs die
+   dan aan onder **Settings → General → Default branch**; de workflow volgt
+   vanzelf mee.
+4. Na een minuut of twee staat de app op
    `https://<jouw-gebruikersnaam>.github.io/App-lading-car/`.
+
+Twee dingen die aan de standaardbranch vastzitten: Pages publiceert er
+vanaf, en geplande workflows zoals de ochtendmelding draaien alleen daar.
+Zet je werk dus op de branch die je als standaard hebt ingesteld.
 
 Werkt de workflow niet, kijk dan onder **Actions** welke stap rood is. Bij
 *Settings → Actions → General* moeten workflows toegestaan zijn.

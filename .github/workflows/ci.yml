@@ -1,5 +1,8 @@
 name: Tests
 
+# Op elke branch en elke pull request. GitHub evalueert geen expressies in
+# een trigger, dus de standaardbranch kan hier niet worden uitgezonderd; een
+# dubbele run van een test van vijf seconden is dat niet waard.
 on:
   push:
     branches: ['**']

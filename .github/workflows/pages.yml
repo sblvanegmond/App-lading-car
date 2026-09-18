@@ -1,8 +1,9 @@
 name: Publiceren op GitHub Pages
 
+# Draait op elke push, maar publiceert alleen vanaf de standaardbranch van de
+# repository. Zo blijft dit werken als je de branch later hernoemt naar main.
 on:
   push:
-    branches: [main, master]
   workflow_dispatch:
 
 permissions:
@@ -16,6 +17,7 @@ concurrency:
 
 jobs:
   test:
+    if: github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,6 +28,7 @@ jobs:
 
   deploy:
     needs: test
+    if: github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
     environment:
       name: github-pages
