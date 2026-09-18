@@ -479,7 +479,10 @@ export function solarSummary(timeline) {
       sunshineMinutes: 0,
       peakKw: 0,
       peakAt: null,
+      /** How many hours of this day the timeline actually covers. */
+      hours: 0,
     };
+    entry.hours += 1;
     entry.pvKwh += slot.pvKw;
     entry.surplusKwh += slot.surplusKw;
     if (Number.isFinite(slot.sunshineMinutes)) entry.sunshineMinutes += slot.sunshineMinutes;

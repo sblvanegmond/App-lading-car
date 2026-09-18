@@ -124,7 +124,13 @@ export function renderSolarDays({ container, noteEl, days, summary, settings }) 
     byDate.set(new Date(day.date).toDateString(), day);
   }
 
-  const entries = (days ?? []).slice(0, 3);
+  // The weather forecast runs further ahead than the price data, and the
+  // timeline stops where the prices stop. Showing a day with sun hours but a
+  // blank yield would read as a broken forecast, so only days the timeline
+  // actually covers are shown.
+  const entries = (days ?? [])
+    .filter((day) => (byDate.get(new Date(day.date).toDateString())?.hours ?? 0) >= 12)
+    .slice(0, 3);
   if (entries.length === 0) {
     noteEl.textContent = 'Nog geen weersverwachting opgehaald.';
     return;

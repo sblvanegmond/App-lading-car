@@ -64,19 +64,59 @@
       <article class="card">
         <h2 class="card__title">Elke ochtend een seintje</h2>
         <p class="card__note">
-          Zet de app op je beginscherm en kies hieronder een tijd. Op Android krijg je
-          dan een melding zodra het plan voor vandaag klaarstaat. Op de iPhone werkt een
-          agenda-afspraak het betrouwbaarst: gebruik de knop “Zet in agenda”.
+          Twee manieren, en je kunt ze allebei gebruiken. <b>In de app</b>: je ziet het
+          plan van die dag zodra je de app na het ingestelde tijdstip opent.
+          <b>Als pushmelding</b>: je telefoon piept 's ochtends vanzelf, ook als de app
+          dicht is. Daarvoor moet de app eerst op je beginscherm staan.
         </p>
         <label class="field field--inline">
           <input id="notify-enabled" type="checkbox" />
-          <span>Ochtendmelding aanzetten</span>
+          <span>Melding bij openen aanzetten</span>
         </label>
         <label class="field">
           <span class="field__label">Tijdstip melding</span>
           <input id="notify-time" type="time" />
         </label>
         <p id="notify-status" class="card__note"></p>
+      </article>
+
+      <article class="card">
+        <h2 class="card__title">Pushmelding instellen</h2>
+        <p class="card__note">
+          Vul de publieke sleutel in die je met <code>npm run vapid</code> hebt gemaakt,
+          meld je aan, en plak de code die daaronder verschijnt als GitHub-secret
+          <code>PUSH_SUBSCRIPTION</code>. De stappen staan in de README.
+        </p>
+        <label class="field">
+          <span class="field__label">Publieke VAPID-sleutel</span>
+          <input id="vapid-key" type="text" autocapitalize="off" spellcheck="false" placeholder="B…" />
+        </label>
+        <div class="row">
+          <button id="push-subscribe" class="button button--primary" type="button">Aanmelden</button>
+          <button id="push-unsubscribe" class="button" type="button">Afmelden</button>
+        </div>
+        <p id="push-status" class="card__note"></p>
+        <label class="field" id="push-subscription-field" hidden>
+          <span class="field__label">Waarde voor het secret PUSH_SUBSCRIPTION</span>
+          <textarea id="push-subscription" class="code-box" rows="5" readonly></textarea>
+        </label>
+        <div class="row" id="push-copy-row" hidden>
+          <button id="push-copy" class="button" type="button">Kopieer aanmelding</button>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2 class="card__title">Instellingen meenemen</h2>
+        <p class="card__note">
+          De ochtendmelding wordt op GitHub berekend en die kent jouw auto en panelen
+          niet. Kopieer je instellingen hierheen en zet ze in het bestand
+          <code>notify-config.json</code> in je repository.
+        </p>
+        <div class="row">
+          <button id="export-settings" class="button" type="button">Kopieer instellingen</button>
+          <button id="import-settings" class="button button--quiet" type="button">Instellingen plakken</button>
+        </div>
+        <p id="export-status" class="card__note"></p>
       </article>
     </section>
 

@@ -402,3 +402,14 @@ test('without any prices the solar hours are still shown', () => {
   const timeline = buildTimeline([], solarRows(now, [0, 1, 2]), settings);
   assert.equal(timeline.length, 3);
 });
+
+test('the solar summary reports how much of each day the timeline covers', () => {
+  const settings = testSettings();
+  const now = new Date('2026-06-15T22:00:00+02:00');
+  // Two hours on the 15th, then two on the 16th.
+  const timeline = buildTimeline(priceRows(now, [0.1, 0.1, 0.1, 0.1]), solarRows(now, [0, 0, 0, 0]), settings);
+  const summary = solarSummary(timeline);
+  assert.equal(summary.length, 2);
+  assert.equal(summary[0].hours, 2);
+  assert.equal(summary[1].hours, 2);
+});

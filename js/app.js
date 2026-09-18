@@ -6,12 +6,14 @@
  * the device; there is no backend.
  */
 
-import { loadSettings, saveSettings, defaultSettings } from './config.js';
+import { loadSettings, saveSettings, defaultSettings, mergeSettings } from './config.js';
 import { loadData } from './api.js';
 import { buildTimeline, planCharging, solarSummary, MODES } from './planner.js';
 import { downloadIcs } from './ics.js';
+import { briefingNotification, briefingText } from './briefing.js';
+import { subscribeToPush, unsubscribeFromPush, currentSubscription, pushSupport } from './push.js';
 import * as ui from './ui.js';
-import { formatEuro, formatCents } from './pricing.js';
+import { formatEuro } from './pricing.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -78,6 +80,7 @@ function fillForm() {
   renderArrays();
   el('notify-enabled').checked = Boolean(state.settings.notifications.enabled);
   el('notify-time').value = state.settings.notifications.time;
+  el('vapid-key').value = state.settings.notifications.vapidPublicKey ?? '';
   el('location-name').textContent = state.settings.location.name || 'je locatie';
 }
 
@@ -254,42 +257,36 @@ function setStatus(text) {
 /* ------------------------------------------------------------------ */
 
 function planAsText() {
-  const plan = state.plan;
-  if (!plan?.blocks?.length) return 'Nog geen laadplan berekend.';
-  const lines = [`Laadplan voor ${state.settings.location.name}:`];
-  for (const block of plan.blocks) {
-    lines.push(
-      `• ${ui.dayPhrase(block.from)} ${ui.clock(block.from)}–${ui.clock(block.to)} · ` +
-        `${ui.number(block.kwh, 1)} kWh · ${formatEuro(block.cost)} · ` +
-        `${Math.round(block.solarSharePct)}% eigen zon`,
-    );
+  return briefingText(state.plan, state.settings, { now: new Date() });
+}
+
+async function copyText(text, okMessage, statusFn = setStatus) {
+  try {
+    await navigator.clipboard.writeText(text);
+    statusFn(okMessage);
+    return true;
+  } catch {
+    statusFn('Kopiëren lukte niet. Selecteer de tekst en kopieer hem met de hand.');
+    return false;
   }
-  lines.push(
-    `Totaal ${ui.number(plan.totals.kwh, 1)} kWh voor ${formatEuro(plan.totals.cost)} ` +
-      `(${formatCents(plan.totals.avgPricePerKwh)}/kWh).`,
-  );
-  if (plan.comparison?.savingsVsImmediate > 0.005) {
-    lines.push(`Dat is ${formatEuro(plan.comparison.savingsVsImmediate)} minder dan meteen laden.`);
-  }
-  return lines.join('\n');
 }
 
 async function sharePlan() {
   const text = planAsText();
-  try {
-    if (navigator.share) {
+  if (navigator.share) {
+    try {
       await navigator.share({ title: 'Laadmoment', text });
       return;
+    } catch (err) {
+      // A cancelled share is not a failure; anything else falls through.
+      if (err?.name === 'AbortError') return;
     }
-    await navigator.clipboard.writeText(text);
-    setStatus('Plan gekopieerd naar het klembord.');
-  } catch {
-    setStatus('Delen is geannuleerd.');
   }
+  await copyText(text, 'Plan gekopieerd naar het klembord.');
 }
 
 /* ------------------------------------------------------------------ */
-/* Morning notification                                                */
+/* Morning notification, in the app                                    */
 /* ------------------------------------------------------------------ */
 
 function notifyStatus(text) {
@@ -300,7 +297,7 @@ async function toggleNotifications(enabled) {
   state.settings.notifications.enabled = enabled;
   if (!enabled) {
     saveSettings(state.settings);
-    notifyStatus('Ochtendmelding staat uit.');
+    notifyStatus('Melding bij openen staat uit.');
     return;
   }
   if (!('Notification' in window)) {
@@ -320,9 +317,7 @@ async function toggleNotifications(enabled) {
   }
   saveSettings(state.settings);
   await registerPeriodicSync();
-  notifyStatus(
-    'Aan. Je krijgt het plan te zien zodra je de app na dit tijdstip opent, en op Android ook als melding.',
-  );
+  notifyStatus('Aan. Je ziet het plan zodra je de app na dit tijdstip opent.');
 }
 
 async function registerPeriodicSync() {
@@ -339,9 +334,8 @@ async function registerPeriodicSync() {
 
 /**
  * Show the briefing once per day, the first time the app is opened after the
- * chosen time. A web app cannot reliably wake itself on every phone, so this
- * runs when the app is opened and the service worker handles the rest where
- * the platform allows it.
+ * chosen time. This is the fallback for devices that cannot receive a push
+ * message; the notifier covers the case where the app stays closed.
  */
 function maybeNotify(now) {
   const settings = state.settings;
@@ -359,20 +353,129 @@ function maybeNotify(now) {
   settings.lastBriefingDate = today;
   saveSettings(settings);
 
-  const block = state.plan.blocks[0];
-  const body =
-    `${ui.clock(block.from)}–${ui.clock(block.to)} · ${ui.number(block.kwh, 1)} kWh · ` +
-    `${formatEuro(block.cost)} · ${Math.round(block.solarSharePct)}% eigen zon`;
+  const { title, body } = briefingNotification(state.plan, { now });
+  const options = { body, icon: 'icons/icon-192.png', tag: 'laadmoment', renotify: false };
 
   try {
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('Beste laadmoment vandaag', { body, icon: 'icons/icon-192.png', tag: 'laadmoment' });
+      new Notification(title, options);
     }
   } catch {
-    /* Some browsers only allow notifications from the service worker. */
+    // Some browsers only allow notifications from the service worker.
     navigator.serviceWorker?.ready
-      .then((reg) => reg.showNotification('Beste laadmoment vandaag', { body, icon: 'icons/icon-192.png', tag: 'laadmoment' }))
+      .then((reg) => reg.showNotification(title, options))
       .catch(() => {});
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Push notification, from the notifier                                */
+/* ------------------------------------------------------------------ */
+
+function pushStatus(text) {
+  el('push-status').textContent = text;
+}
+
+function showSubscription(subscription) {
+  const field = el('push-subscription-field');
+  const row = el('push-copy-row');
+  const box = el('push-subscription');
+  if (!subscription) {
+    field.hidden = true;
+    row.hidden = true;
+    box.value = '';
+    return;
+  }
+  box.value = JSON.stringify(subscription);
+  field.hidden = false;
+  row.hidden = false;
+}
+
+async function refreshPushState() {
+  const support = pushSupport();
+  const subscription = support.supported ? await currentSubscription() : null;
+  showSubscription(subscription);
+  el('push-subscribe').disabled = !support.supported;
+  el('push-unsubscribe').disabled = !subscription;
+
+  if (!support.supported) {
+    pushStatus(support.reason);
+    return;
+  }
+  pushStatus(
+    subscription
+      ? 'Aangemeld. Plak de code hieronder als GitHub-secret PUSH_SUBSCRIPTION.'
+      : 'Nog niet aangemeld voor pushmeldingen.',
+  );
+}
+
+async function handleSubscribe() {
+  const key = el('vapid-key').value.trim();
+  state.settings.notifications.vapidPublicKey = key;
+  saveSettings(state.settings);
+  pushStatus('Bezig met aanmelden…');
+  try {
+    const subscription = await subscribeToPush(key);
+    showSubscription(subscription);
+    el('push-unsubscribe').disabled = false;
+    pushStatus('Gelukt. Plak de code hieronder als GitHub-secret PUSH_SUBSCRIPTION.');
+  } catch (err) {
+    showSubscription(null);
+    pushStatus(err.message);
+  }
+}
+
+async function handleUnsubscribe() {
+  try {
+    await unsubscribeFromPush();
+  } catch {
+    /* already gone is fine */
+  }
+  await refreshPushState();
+  pushStatus('Afgemeld. Verwijder het secret PUSH_SUBSCRIPTION als je geen meldingen meer wilt.');
+}
+
+/* ------------------------------------------------------------------ */
+/* Settings export and import                                          */
+/* ------------------------------------------------------------------ */
+
+function exportStatus(text) {
+  el('export-status').textContent = text;
+}
+
+/** The shape tools/notify.js expects in notify-config.json. */
+function exportableSettings() {
+  const { lastBriefingDate, ...rest } = state.settings;
+  return JSON.stringify(rest, null, 2);
+}
+
+async function handleExportSettings() {
+  await copyText(
+    exportableSettings(),
+    'Instellingen gekopieerd. Plak ze in notify-config.json.',
+    exportStatus,
+  );
+}
+
+async function handleImportSettings() {
+  let text = '';
+  try {
+    text = await navigator.clipboard.readText();
+  } catch {
+    text = window.prompt('Plak hier de inhoud van notify-config.json') ?? '';
+  }
+  if (!text.trim()) {
+    exportStatus('Niets geplakt.');
+    return;
+  }
+  try {
+    state.settings = mergeSettings(defaultSettings(), JSON.parse(text));
+    saveSettings(state.settings);
+    fillForm();
+    exportStatus('Instellingen overgenomen.');
+    refresh({ force: true });
+  } catch (err) {
+    exportStatus(`Dat was geen geldige JSON: ${err.message}`);
   }
 }
 
@@ -393,6 +496,19 @@ function bind() {
     state.settings.notifications.time = event.target.value || '06:45';
     saveSettings(state.settings);
   });
+
+  el('push-subscribe').addEventListener('click', handleSubscribe);
+  el('push-unsubscribe').addEventListener('click', handleUnsubscribe);
+  el('push-copy').addEventListener('click', () =>
+    copyText(el('push-subscription').value, 'Aanmelding gekopieerd.', pushStatus),
+  );
+  el('vapid-key').addEventListener('change', (event) => {
+    state.settings.notifications.vapidPublicKey = event.target.value.trim();
+    saveSettings(state.settings);
+  });
+
+  el('export-settings').addEventListener('click', handleExportSettings);
+  el('import-settings').addEventListener('click', handleImportSettings);
 
   el('add-array').addEventListener('click', () => {
     const next = readForm();
@@ -450,6 +566,8 @@ async function start() {
       console.warn('Service worker niet geregistreerd:', err);
     }
   }
+  // Only meaningful once the service worker is up, so this comes last.
+  await refreshPushState();
   // Keep clocks and the "now" marker honest while the app stays open.
   setInterval(() => recompute(), 5 * 60 * 1000);
 }

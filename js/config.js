@@ -91,6 +91,12 @@ export const DEFAULT_SETTINGS = {
     enabled: false,
     /** Local time of the morning briefing (HH:MM). */
     time: '06:45',
+    /**
+     * Public VAPID key of your own notifier, made with `npm run vapid`.
+     * Without it the app can still show a briefing when you open it, but a
+     * push message cannot be delivered while the app is closed.
+     */
+    vapidPublicKey: '',
   },
 
   /** Bumped by the app when the user last saw a briefing. */

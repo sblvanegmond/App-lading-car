@@ -51,6 +51,12 @@
 
 * { box-sizing: border-box; }
 
+/*
+ * A class that sets `display` beats the browser's own rule for the hidden
+ * attribute, which would leave elements on screen that the app has hidden.
+ */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   padding: 0;
@@ -129,7 +135,6 @@ main {
 }
 
 .view { display: flex; flex-direction: column; gap: var(--gap); }
-.view[hidden] { display: none; }
 
 .card {
   background: var(--surface-1);
@@ -467,3 +472,27 @@ main {
 }
 
 .button:disabled:active { transform: none; }
+
+.code-box {
+  width: 100%;
+  min-height: 92px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.74rem;
+  line-height: 1.4;
+  resize: vertical;
+  word-break: break-all;
+}
+
+.card__note code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78em;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 5px;
+}

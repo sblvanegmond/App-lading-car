@@ -129,6 +129,21 @@ report.modeCount = await page.locator('.mode').count();
 report.arrayCount = await page.locator('.array').count();
 await page.screenshot({ path: `${OUT}-instellingen.png`, fullPage: true });
 
+// The push card must explain itself rather than fail silently, and a bad
+// key must be rejected before the browser is ever asked to subscribe.
+await page.click('#tab-vandaag');
+await page.waitForTimeout(300);
+report.pushStatus = await page.locator('#push-status').innerText();
+await page.fill('#vapid-key', 'dit-is-geen-sleutel');
+await page.click('#push-subscribe');
+await page.waitForTimeout(600);
+report.pushStatusAfterBadKey = await page.locator('#push-status').innerText();
+report.subscriptionShown = await page.locator('#push-subscription-field').isVisible();
+report.exportButton = await page.locator('#export-settings').isEnabled();
+await page.screenshot({ path: `${OUT}-melding.png`, fullPage: true });
+await page.click('#tab-instellingen');
+await page.waitForTimeout(300);
+
 // Change a setting and confirm the plan reacts.
 await page.fill('input[name="car.currentSocPct"]', '10');
 await page.fill('input[name="car.targetSocPct"]', '90');

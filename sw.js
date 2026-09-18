@@ -3,7 +3,7 @@
  * and shows the morning briefing where the platform allows it.
  */
 
-const CACHE = 'laadmoment-v1';
+const CACHE = 'laadmoment-v2';
 
 const SHELL = [
   './',
@@ -14,6 +14,7 @@ const SHELL = [
   'js/api.js',
   'js/config.js',
   'js/ics.js',
+  'js/briefing.js',
   'js/planner.js',
   'js/pricing.js',
   'js/solar.js',
@@ -68,6 +69,35 @@ self.addEventListener('fetch', (event) => {
 });
 
 /**
+ * A real push message from the notifier. This is what makes the morning
+ * briefing arrive without opening the app, on Android and on an iPhone where
+ * the app sits on the home screen.
+ */
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { body: event.data ? event.data.text() : '' };
+  }
+
+  const title = payload.title || 'Laadmoment';
+  const body = payload.body || 'Open de app voor het laadplan van vandaag.';
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: 'icons/icon-192.png',
+      badge: 'icons/icon-192.png',
+      tag: payload.tag || 'laadmoment-ochtend',
+      // Replacing an earlier briefing should not buzz a second time.
+      renotify: false,
+      data: { url: payload.url || './' },
+    }),
+  );
+});
+
+/**
  * Android with periodic background sync can wake the app up. Everywhere else
  * this never fires, which is why the app also shows the briefing on open and
  * offers a calendar event with an alarm.
@@ -86,12 +116,13 @@ self.addEventListener('periodicsync', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const target = event.notification.data?.url || './';
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
         if ('focus' in client) return client.focus();
       }
-      return self.clients.openWindow('./');
+      return self.clients.openWindow(target);
     }),
   );
 });

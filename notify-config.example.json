@@ -1,0 +1,29 @@
+{
+  "location": { "name": "Grootegast", "latitude": 53.2069, "longitude": 6.2903, "timezone": "Europe/Amsterdam" },
+  "pv": {
+    "arrays": [{ "id": "a1", "label": "Hoofdveld", "kWp": 4.0, "tilt": 35, "azimuth": 0 }],
+    "performanceRatio": 0.86,
+    "inverterKw": 3.7,
+    "tempCoeff": -0.004
+  },
+  "houseBaseLoadKw": 0.35,
+  "car": {
+    "batteryKwh": 58,
+    "chargerKw": 11,
+    "minChargeKw": 1.4,
+    "currentSocPct": 40,
+    "targetSocPct": 80,
+    "chargeLossPct": 10
+  },
+  "readyBy": "07:30",
+  "mode": "balans",
+  "tariffs": {
+    "supplierMarkupPerKwh": 0.02,
+    "energyTaxPerKwh": 0.1015,
+    "vatPct": 21,
+    "feedInPerKwh": 0.05,
+    "netMetering": false
+  },
+  "prices": { "source": "energyzero", "customUrl": "" },
+  "notifications": { "enabled": true, "time": "06:45", "vapidPublicKey": "" }
+}
