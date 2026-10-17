@@ -1,0 +1,120 @@
+name: Android-app
+
+# Bouwt de APK, start hem op een emulator, en zet hem als release op GitHub
+# zodat je hem op je telefoon kunt downloaden:
+#   https://github.com/<jij>/App-lading-car/releases/latest/download/Laadmoment.apk
+on:
+  push:
+    paths:
+      - 'android/**'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Tests van de rekenkern
+        run: ./gradlew --no-daemon :core:test
+
+      # Laat in het logboek zien wat de echte prijs- en weerdiensten nu
+      # antwoorden. Mag mislukken: dan ligt het aan een dienst, niet aan de app.
+      - name: Echte prijzen en weer ophalen
+        continue-on-error: true
+        run: ./gradlew --no-daemon -q :core:liveCheck
+
+      - name: APK bouwen
+        env:
+          LAADMOMENT_BUILD: ${{ github.run_number }}
+        run: ./gradlew --no-daemon :app:assembleRelease
+
+      - name: APK klaarzetten
+        run: cp app/build/outputs/apk/release/app-release.apk ../Laadmoment.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Laadmoment-apk
+          path: Laadmoment.apk
+          if-no-files-found: error
+
+  emulator:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Laadmoment-apk
+
+      - name: KVM aanzetten
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Starten op een emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -timezone Europe/Amsterdam
+          script: bash android/tools/smoke.sh Laadmoment.apk screenshots
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: schermafbeeldingen
+          path: screenshots/
+
+  release:
+    needs: [build, emulator]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Release bijwerken
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cat > notes.md <<NOTES
+          **Downloaden op je telefoon:** open deze pagina in Chrome op je Android-telefoon en tik hieronder bij *Assets* op **Laadmoment.apk**.
+
+          Directe link: https://github.com/${GH_REPO}/releases/latest/download/Laadmoment.apk
+
+          De eerste keer vraagt Android of Chrome apps mag installeren. Zeg ja. Krijg je een waarschuwing van Play Protect, tik dan op *Details* en daarna *Toch installeren*. Een nieuwe versie installeer je op dezelfde manier: je instellingen blijven bewaard.
+
+          Gebouwd van \`${GITHUB_SHA::7}\` op branch \`${GITHUB_REF_NAME}\`.
+          NOTES
+          gh release delete android --yes --cleanup-tag || true
+          gh release create android dist/Laadmoment.apk dist/*.png \
+            --target "$GITHUB_SHA" \
+            --title "Laadmoment voor Android, versie 1.0.${{ github.run_number }}" \
+            --notes-file notes.md \
+            --latest

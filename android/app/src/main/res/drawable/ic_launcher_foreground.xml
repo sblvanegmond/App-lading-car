@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A sun behind a lightning bolt, inside the 66dp safe zone of an adaptive icon. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- sun rays -->
+    <path
+        android:strokeColor="#FBBF24"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:pathData="M70,20 L70,24 M70,48 L70,52 M54,36 L58,36 M82,36 L86,36 M58.7,24.7 L61.5,27.5 M78.5,44.5 L81.3,47.3 M58.7,47.3 L61.5,44.5 M78.5,27.5 L81.3,24.7" />
+    <!-- sun disc -->
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M70,36 m-9,0 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" />
+    <!-- bolt, with a dark outline so it stands free of the sun -->
+    <path
+        android:fillColor="#34D399"
+        android:strokeColor="#0F1115"
+        android:strokeWidth="3"
+        android:strokeLineJoin="round"
+        android:pathData="M54,24 L34,60 L49,60 L44,84 L72,46 L57,46 L63,24 Z" />
+</vector>

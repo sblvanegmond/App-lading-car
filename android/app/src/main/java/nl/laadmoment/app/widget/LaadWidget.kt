@@ -1,0 +1,100 @@
+package nl.laadmoment.app.widget
+
+import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import android.widget.RemoteViews
+import nl.laadmoment.app.MainActivity
+import nl.laadmoment.app.R
+import nl.laadmoment.app.laadmoment
+import nl.laadmoment.app.work.Scheduler
+import nl.laadmoment.core.Briefing
+import nl.laadmoment.core.Fmt
+import nl.laadmoment.core.Snapshot
+
+/**
+ * Home-screen widget: the best window in words, and the coming hours as a
+ * strip of coloured bars with the sun on top. Drawn from the cached data;
+ * the hourly refresh job keeps that cache current.
+ */
+class LaadWidget : AppWidgetProvider() {
+
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
+        val snapshot = snapshotFromCache(context)
+        ids.forEach { render(context, manager, it, snapshot) }
+        Scheduler.refreshSoon(context)
+    }
+
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: Bundle) {
+        render(context, manager, id, snapshotFromCache(context))
+    }
+
+    companion object {
+        fun updateAll(context: Context, snapshot: Snapshot = snapshotFromCache(context)) {
+            val manager = AppWidgetManager.getInstance(context) ?: return
+            val ids = manager.getAppWidgetIds(ComponentName(context, LaadWidget::class.java))
+            ids.forEach { render(context, manager, it, snapshot) }
+        }
+
+        private fun snapshotFromCache(context: Context): Snapshot {
+            val app = context.laadmoment
+            return Snapshot.of(app.settings.current, app.forecasts.cached())
+        }
+
+        private fun render(context: Context, manager: AppWidgetManager, id: Int, snapshot: Snapshot) {
+            val options = manager.getAppWidgetOptions(id)
+            val widthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250).coerceAtLeast(160)
+            val heightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 110).coerceAtLeast(80)
+            manager.updateAppWidget(id, views(context, snapshot, widthDp, heightDp))
+        }
+
+        /** The widget's views for a given size; the settings screen shows them as a preview. */
+        fun views(context: Context, snapshot: Snapshot, widthDp: Int, heightDp: Int): RemoteViews {
+            val views = RemoteViews(context.packageName, R.layout.widget_laad)
+            val (title, subtitle) = texts(snapshot)
+            views.setTextViewText(R.id.widget_title, title)
+            views.setTextViewText(R.id.widget_subtitle, subtitle)
+
+            val density = context.resources.displayMetrics.density
+            val chartWidth = ((widthDp - 28) * density).toInt().coerceIn(200, 1400)
+            val chartHeight = ((heightDp - 62) * density).toInt().coerceIn((32 * density).toInt(), (160 * density).toInt())
+            views.setImageViewBitmap(R.id.widget_chart, WidgetChart.draw(snapshot.insights, chartWidth, chartHeight, density))
+
+            val open = PendingIntent.getActivity(
+                context,
+                0,
+                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            views.setOnClickPendingIntent(R.id.widget_root, open)
+            return views
+        }
+
+        /** Asks the launcher to place the widget; false when it cannot. */
+        fun requestPin(context: Context): Boolean {
+            val manager = context.getSystemService(AppWidgetManager::class.java) ?: return false
+            if (!manager.isRequestPinAppWidgetSupported) return false
+            return manager.requestPinAppWidget(ComponentName(context, LaadWidget::class.java), null, null)
+        }
+
+        fun canPin(context: Context): Boolean =
+            context.getSystemService(AppWidgetManager::class.java)?.isRequestPinAppWidgetSupported == true
+
+        private fun texts(snapshot: Snapshot): Pair<String, String> {
+            val first = snapshot.windows.firstOrNull()
+                ?: return "Laadmoment" to "Tik om prijzen en weer op te halen"
+            val sun = if (first.sunny) " ☀️" else ""
+            val title = "⚡ ${Briefing.window(first, snapshot.now, snapshot.zone)}$sun"
+            val rest = snapshot.windows.drop(1).take(2).map { w ->
+                val day = Fmt.dayWord(w.from, snapshot.now, snapshot.zone)
+                "${if (day == "vandaag") "" else "$day "}${Fmt.range(w.from, w.to, snapshot.zone)}"
+            }
+            val subtitle = (listOf("gem. ${Fmt.cents(first.avgPrice)}") + rest.map { "ook $it" }).joinToString(" · ")
+            return title to subtitle
+        }
+    }
+}

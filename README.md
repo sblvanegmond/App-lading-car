@@ -1,23 +1,98 @@
 # Laadmoment
 
-Een app voor op je telefoon die je elke ochtend laat zien wanneer je je auto
-het beste kunt laden. De app weegt drie dingen tegen elkaar af:
+Een app voor op je telefoon die laat zien wanneer je je auto het beste kunt
+laden. Er zijn twee versies:
 
-1. **De dynamische stroomprijs in Nederland** — de day-ahead uurprijzen, met
-   jouw eigen opslag, energiebelasting en btw erbovenop.
-2. **De zon boven Grootegast** — de verwachte straling per uur op precies jouw
-   dakvlakken, plus de zonuren van de dag.
-3. **De capaciteit van je zonnepanelen** — vermogen in kWp, hellingshoek,
-   richting, omvormerbegrenzing en systeemrendement.
-
-Het resultaat is een concreet laadvenster: *"14:00 – 16:00, 22 kWh, € 2,72,
-19% uit eigen zon"*, met de kosten afgezet tegen meteen laden.
-
-Het is een **progressive web app**: statische bestanden, geen account, geen
-API-sleutel, geen server die je moet betalen. Je zet hem op je beginscherm en
-hij gedraagt zich als een gewone app, ook zonder internet.
+- de **Android-app** (hieronder): de stroomprijs en de zon per uur, met je
+  beste uren gemarkeerd. Geen gegevens over je auto of je panelen nodig. Je
+  installeert hem als APK, met een widget en meldingen erbij.
+- de **web-app** (vanaf *Stap 1*): rekent een volledig laadplan uit met je
+  accu, je laadvermogen en de opbrengst van je zonnepanelen, bijvoorbeeld
+  *"14:00 – 16:00, 22 kWh, € 2,72, 19% uit eigen zon"*. Werkt ook op een
+  iPhone.
 
 ---
+
+## Android-app
+
+### Installeren
+
+1. Open de **Chrome-app** op je Android-telefoon en plak deze link in de
+   adresbalk:
+   **https://github.com/sblvanegmond/App-lading-car/releases/latest/download/Laadmoment.apk**
+
+   Tik de link liever niet aan vanuit een andere app (een chat, je mail).
+   Die openen hem in een ingebouwd browservenster, en daar blijft de
+   download soms op *Downloaden* staan.
+2. Chrome vraagt of je dit bestand toch wilt downloaden, omdat een APK een
+   app is. Tik op *Toch downloaden*. Zolang je dat niet bevestigt, blijft de
+   download op *Downloaden* hangen, ook als alles al binnen is.
+3. Tik op *Openen*, of open `Laadmoment.apk` via Chrome → ⋮ → *Downloads*.
+4. De eerste keer vraagt Android of Chrome apps mag installeren. Zet dat aan
+   en ga terug.
+5. Play Protect kan waarschuwen dat de app onbekend is. Tik op *Details* →
+   *Toch installeren*. De app komt niet uit de Play Store, daarom die vraag.
+
+Blijft de download hangen? Kijk dan in Chrome bij ⋮ → *Downloads* of er bij
+`Laadmoment.apk` een knop staat om het bestand te behouden. Of probeer een
+andere browser, zoals Samsung Internet of Firefox.
+
+Een nieuwere versie installeer je precies zo; je instellingen blijven staan.
+Elke push naar `android/` bouwt een nieuwe release (workflow *Android-app*).
+
+### Wat je ziet
+
+- **Bovenaan je beste uren**, bijvoorbeeld *"Vandaag 13:00 – 16:00, gem. 27 ct,
+  ☀️ zon"* en *"Morgen 03:00 – 05:00"*. Daaronder één zin over nu: *"Nu duur
+  (36 ct). Het volgende beste uur is vandaag 13:00."*
+- **Hoeveel uren**: met − en + kies je hoeveel beste uren de app markeert,
+  standaard 5. Daaronder kies je *Laagste prijs* (de goedkoopste uren) of
+  *Prijs én zon* (een uur met volle zon telt als half zo duur).
+- **Komende uren**: een balk die je opzij schuift. Per uur het weer, de prijs
+  in ct/kWh als gekleurde staaf (groen goedkoop, grijs gemiddeld, rood duur),
+  de zon in geel eronder, en ⚡ met een groene band op je beste uren. De zon
+  van morgen staat er al in voordat de prijzen van morgen bekend zijn.
+- **Per uur**: het weer, hoeveel minuten zon, de prijs, en *⚡ beste* bij je
+  beste uren.
+- **Per dag**: de zonuren, zonsopkomst en -ondergang, en het goedkoopste en
+  duurste uur.
+
+De prijzen zijn inclusief energiebelasting (2026: € 0,0916 per kWh), btw en
+2 ct opslag. Dat schuift alle uren evenveel op; welke uren het beste zijn,
+verandert er niet door.
+
+### Widget en meldingen
+
+- **Widget**: in *Instellingen* staat bovenaan een voorbeeld met de knop *Zet
+  op beginscherm*. Of houd je beginscherm ingedrukt → *Widgets* →
+  *Laadmoment*. Je ziet je beste uren en de komende 24 uur als gekleurde
+  staafjes met de zon erboven. Hij ververst elk uur.
+- **Ochtendoverzicht** en **seintje een kwartier voor je beste uren**: zet
+  ze aan onder *Instellingen → Meldingen*. Geen sleutels, geen GitHub-secrets:
+  de telefoon doet het zelf.
+
+### Hoe het gebouwd is
+
+| Map | Wat |
+|---|---|
+| `android/core` | De rekenkern in gewone Kotlin: prijzen en weer ophalen, de beste uren kiezen, de teksten. Getest met `./gradlew :core:test`. |
+| `android/app` | De Android-app (Jetpack Compose), de widget en de achtergrondtaken. |
+| `android/tools/smoke.sh` | Installeert de APK op een emulator, maakt schermafbeeldingen en faalt als de app crasht. |
+| `.github/workflows/android.yml` | Tests, een controle tegen de echte prijs- en weerdiensten, de APK, de emulatortest en de release. |
+
+De prijzen komen van EnergyZero; geeft die niets, of nog niet de prijzen van
+morgen, dan springt Energy-Charts (Fraunhofer ISE) in met dezelfde
+EPEX-prijzen. Kwartierprijzen worden per uur gemiddeld.
+
+De APK is ondertekend met een vaste sleutel die in de repository staat
+(`android/app/laadmoment.keystore`), zodat een update altijd over de vorige
+heen installeert. Dat is prima voor een app die je zelf installeert. Wil je
+hem ooit in een winkel zetten, maak dan eerst een eigen sleutel.
+
+---
+
+## Web-app
+
 
 ## Stap 1 — De app online zetten
 
