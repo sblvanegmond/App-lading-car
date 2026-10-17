@@ -2,10 +2,13 @@
 /**
  * Generate the app icons as PNG files without any image library.
  *
- * The icon is drawn procedurally - a dark rounded square, a sun in the top
- * corner and a charging bolt across it - and written with a hand-rolled PNG
+ * Both icons are drawn procedurally and written with a hand-rolled PNG
  * encoder, so the project stays dependency-free and the icons never have to
- * live in git as binaries.
+ * live in git as binaries:
+ *  - Laadmoment: a dark rounded square, a sun in the top corner and a
+ *    charging bolt across it (icons/);
+ *  - Coach: the same square with a heartbeat line and a recovery dot
+ *    (coach/icons/).
  *
  *   npm run icons
  */
@@ -15,7 +18,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const OUT = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'icons');
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const BG_OUTER = [15, 17, 21];
 const BG_INNER = [26, 32, 44];
@@ -107,6 +110,67 @@ function draw(size, maskable = false) {
   return raw;
 }
 
+const PULSE = [255, 138, 76];
+const DOT = [60, 197, 164];
+
+/** Distance from a point to the segment a-b. */
+function segmentDistance(x, y, [ax, ay], [bx, by]) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)));
+  return Math.hypot(x - (ax + t * dx), y - (ay + t * dy));
+}
+
+function drawCoach(size, maskable = false) {
+  const pad = maskable ? size * 0.12 : 0;
+  const inner = size - 2 * pad;
+  const radius = size * (maskable ? 0.5 : 0.22);
+  const at = (fx, fy) => [pad + inner * fx, pad + inner * fy];
+  const pulse = [
+    at(0.12, 0.58),
+    at(0.34, 0.58),
+    at(0.42, 0.38),
+    at(0.53, 0.78),
+    at(0.62, 0.5),
+    at(0.68, 0.58),
+    at(0.88, 0.58),
+  ];
+  const half = inner * 0.042;
+  const [dotX, dotY] = at(0.72, 0.27);
+  const dotR = inner * 0.075;
+
+  const raw = Buffer.alloc(size * (size * 4 + 1));
+  let offset = 0;
+  for (let py = 0; py < size; py += 1) {
+    raw[offset] = 0;
+    offset += 1;
+    for (let px = 0; px < size; px += 1) {
+      const x = px + 0.5;
+      const y = py + 0.5;
+      const cover = roundedSquareAlpha(x, y, size, radius);
+      if (cover <= 0) {
+        offset += 4;
+        continue;
+      }
+      let colour = lerp(BG_OUTER, BG_INNER, Math.min(1, (x + y) / (2 * size)));
+
+      const dDot = Math.hypot(x - dotX, y - dotY);
+      colour = lerp(colour, DOT, Math.max(0, Math.min(1, dotR - dDot + 0.5)));
+
+      let d = Infinity;
+      for (let i = 1; i < pulse.length; i += 1) d = Math.min(d, segmentDistance(x, y, pulse[i - 1], pulse[i]));
+      colour = lerp(colour, PULSE, Math.max(0, Math.min(1, half - d + 0.5)));
+
+      raw[offset] = colour[0];
+      raw[offset + 1] = colour[1];
+      raw[offset + 2] = colour[2];
+      raw[offset + 3] = Math.round(255 * cover);
+      offset += 4;
+    }
+  }
+  return raw;
+}
+
 function crc32(buffer) {
   let crc = 0xffffffff;
   for (const byte of buffer) {
@@ -142,13 +206,20 @@ function writePng(path, raw, size) {
   writeFileSync(path, png);
 }
 
-mkdirSync(OUT, { recursive: true });
-for (const [name, size, maskable] of [
+const SIZES = [
   ['icon-192.png', 192, false],
   ['icon-512.png', 512, false],
   ['apple-touch-icon.png', 180, false],
   ['maskable-512.png', 512, true],
+];
+
+for (const [dir, paint] of [
+  ['icons', draw],
+  ['coach/icons', drawCoach],
 ]) {
-  writePng(join(OUT, name), draw(size, maskable), size);
-  console.log(`icons/${name} (${size}x${size})`);
+  mkdirSync(join(ROOT, dir), { recursive: true });
+  for (const [name, size, maskable] of SIZES) {
+    writePng(join(ROOT, dir, name), paint(size, maskable), size);
+    console.log(`${dir}/${name} (${size}x${size})`);
+  }
 }

@@ -1,0 +1,11 @@
+{
+  "format": "coach-enc",
+  "v": 1,
+  "t": "2026-10-17T06:00:00Z",
+  "kdf": "PBKDF2-SHA256",
+  "iter": 1000,
+  "salt": "Ys3vvH+JM5KBI92ncWYGaQ==",
+  "iv": "t+hHbTa5zFs0gSBx",
+  "z": "gzip",
+  "ct": "R694zKgXsVl41HI4xhzRmPqNnjPuZw+fKGb0Iut6Rj/tSQzthiCkxR502tANVapuHr5ctMZd7sJ6ZxdoWh4Kp0pW4SBu6PKZcY7Dcr143oOw+f7nYYNysZKfFcnMHoOVkhaOEtYtM6VVedaEEmRurEdBYe3Pi6f6t4TE5mvFSh/LJvpttu0RHA6Xg/gG1LvwTrovwAz1Cw=="
+}
