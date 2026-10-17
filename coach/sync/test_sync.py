@@ -367,6 +367,13 @@ class RunTests(unittest.TestCase):
     def test_missing_key(self):
         args = SimpleNamespace(previous=None, out="niet-gebruikt", full=False, dry_run=True)
         self.assertEqual(sync.run(args, {"COACH_SYNC_KEY": "kort"}), 1)
+        self.assertEqual(sync.run(args, {"STRAVA_CLIENT_ID": "1", "STRAVA_CLIENT_SECRET": "x", "STRAVA_REFRESH_TOKEN": "y"}), 1)
+
+    def test_not_set_up_yet_is_not_a_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            args = SimpleNamespace(previous=None, out=tmp, full=False, dry_run=False)
+            self.assertEqual(sync.run(args, {}), 0)
+            self.assertEqual(list(Path(tmp).iterdir()), [], "nothing is published")
 
 
 if __name__ == "__main__":
