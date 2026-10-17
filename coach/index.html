@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+<title>Coach</title>
+<meta name="description" content="Je persoonlijke leefstijlcoach: Claude met je Strava-activiteiten, je Garmin-horloge en je eigen voedingslog." />
+<meta name="theme-color" content="#101214" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#f4f3ef" media="(prefers-color-scheme: light)" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Coach" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="topbar__title">
+      <h1 id="title">Coach</h1>
+      <p id="status-line" class="topbar__status">Laden…</p>
+    </div>
+    <button id="refresh" class="icon-button" type="button" aria-label="Gegevens verversen">
+      <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22"><path d="M20 11a8 8 0 1 0-.6 3.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 4.5V11h-6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </header>
+
+  <main id="main">
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+    <!-- ---------------- Vandaag ---------------- -->
+    <section id="view-vandaag" class="view" aria-labelledby="tab-vandaag">
+      <div id="notices"></div>
+
+      <article id="setup-card" class="card" hidden>
+        <h2 class="card__title">Even instellen</h2>
+        <p class="muted">Drie dingen en de coach kan aan de slag. In <code>coach/README.md</code> staat precies hoe.</p>
+        <ul id="setup-list" class="checklist"></ul>
+        <button class="button" type="button" data-goto="instellingen">Naar instellingen</button>
+      </article>
+
+      <article class="card">
+        <div class="card__head">
+          <h2 class="card__title">Herstel</h2>
+          <span id="recovery-date" class="card__meta"></span>
+        </div>
+        <div id="recovery-grid" class="stats"></div>
+        <p id="recovery-empty" class="muted" hidden>Nog geen Garmin-gegevens. Koppel Garmin via de synchronisatie, zie de instellingen.</p>
+      </article>
+
+      <article class="card">
+        <div class="card__head">
+          <h2 class="card__title">Beweging</h2>
+          <span id="movement-meta" class="card__meta"></span>
+        </div>
+        <div id="movement-grid" class="stats"></div>
+        <div id="week-strip" class="week-strip" aria-label="Trainingsminuten per dag deze week"></div>
+        <p id="last-activity" class="muted small"></p>
+      </article>
+
+      <article class="card">
+        <div class="card__head">
+          <h2 class="card__title">Eten en drinken</h2>
+          <button class="link-button" type="button" data-goto="voeding">Log openen</button>
+        </div>
+        <div id="intake-bars" class="bars"></div>
+        <div id="quick-today" class="chips" aria-label="Snel toevoegen"></div>
+      </article>
+
+      <article class="card card--ask">
+        <h2 class="card__title">Vraag de coach</h2>
+        <div id="ask-suggestions" class="suggestions"></div>
+      </article>
+    </section>
+
+    <!-- ---------------- Activiteiten ---------------- -->
+    <section id="view-activiteiten" class="view" hidden aria-labelledby="tab-activiteiten">
+      <div id="sport-filter" class="chips chips--scroll" role="group" aria-label="Filter op sport"></div>
+      <div id="activity-list"></div>
+      <p id="activity-empty" class="muted center" hidden>Geen activiteiten gevonden.</p>
+    </section>
+
+    <!-- ---------------- Voeding ---------------- -->
+    <section id="view-voeding" class="view" hidden aria-labelledby="tab-voeding">
+      <div class="day-nav">
+        <button id="day-prev" class="icon-button" type="button" aria-label="Vorige dag">‹</button>
+        <h2 id="day-label">Vandaag</h2>
+        <button id="day-next" class="icon-button" type="button" aria-label="Volgende dag">›</button>
+      </div>
+
+      <article class="card">
+        <div id="day-bars" class="bars"></div>
+        <div id="quick-adds" class="chips" aria-label="Snel toevoegen"></div>
+      </article>
+
+      <form id="intake-form" class="card form" autocomplete="off">
+        <h2 class="card__title">Toevoegen</h2>
+        <label class="field">
+          <span>Wat at of dronk je?</span>
+          <textarea id="intake-description" name="description" rows="2" placeholder="Bijvoorbeeld: twee boterhammen met kaas en een glas melk"></textarea>
+        </label>
+        <div class="row">
+          <label class="field">
+            <span>Soort</span>
+            <select id="intake-kind" name="kind"></select>
+          </label>
+          <label class="field">
+            <span>Tijd</span>
+            <input id="intake-time" name="time" type="time" />
+          </label>
+        </div>
+        <div class="row row--actions">
+          <label class="button button--ghost file-button">
+            <input id="intake-photo" type="file" accept="image/*" hidden />
+            <span>Foto</span>
+          </label>
+          <button id="intake-estimate" class="button button--ghost" type="button">Schat met AI</button>
+        </div>
+        <img id="intake-preview" class="photo-preview" alt="Gekozen foto" hidden />
+        <div id="intake-estimate-result" class="estimate" hidden></div>
+        <details id="intake-numbers" class="numbers">
+          <summary>Voedingswaarden (optioneel)</summary>
+          <div id="intake-fields" class="grid-fields"></div>
+        </details>
+        <button class="button" type="submit">Opslaan</button>
+      </form>
+
+      <article class="card">
+        <h2 class="card__title">Gelogd</h2>
+        <ul id="entry-list" class="entries"></ul>
+        <p id="entry-empty" class="muted">Nog niets gelogd op deze dag.</p>
+      </article>
+    </section>
+
+    <!-- ---------------- Coach ---------------- -->
+    <section id="view-coach" class="view view--chat" hidden aria-labelledby="tab-coach">
+      <div class="chat-head">
+        <p id="chat-note" class="muted small"></p>
+        <button id="chat-new" class="link-button" type="button">Nieuw gesprek</button>
+      </div>
+      <div id="chat-log" class="chat-log" aria-live="polite"></div>
+      <div id="chat-suggestions" class="suggestions"></div>
+      <form id="chat-form" class="composer">
+        <img id="chat-preview" class="composer__preview" alt="Bijgevoegde foto" hidden />
+        <div class="composer__row">
+          <label class="icon-button file-button" aria-label="Foto toevoegen">
+            <input id="chat-photo" type="file" accept="image/*" hidden />
+            <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22"><path d="M4 8h3l2-2.5h6L17 8h3v11H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+          </label>
+          <textarea id="chat-input" rows="1" placeholder="Vraag iets aan je coach" aria-label="Bericht"></textarea>
+          <button id="chat-send" class="send-button" type="submit" aria-label="Versturen">
+            <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20"><path d="M5 12h13M12.5 6 18.5 12l-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button id="chat-stop" class="send-button send-button--stop" type="button" aria-label="Stoppen" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ---------------- Instellingen ---------------- -->
+    <section id="view-instellingen" class="view" hidden aria-labelledby="tab-instellingen">
+      <form id="settings-form" class="settings" autocomplete="off">
+
+        <article class="card form">
+          <h2 class="card__title">Over jou</h2>
+          <p class="muted small">Hoe meer de coach weet, hoe beter het advies past. Alles blijft op je telefoon, behalve wat je Claude vraagt.</p>
+          <label class="field"><span>Naam</span><input data-path="profile.name" type="text" autocomplete="given-name" /></label>
+          <div class="row">
+            <label class="field"><span>Geboortejaar</span><input data-path="profile.birthYear" data-type="number" type="number" inputmode="numeric" min="1900" max="2100" /></label>
+            <label class="field"><span>Geslacht</span>
+              <select data-path="profile.sex">
+                <option value="">Niet opgegeven</option>
+                <option value="vrouw">Vrouw</option>
+                <option value="man">Man</option>
+                <option value="anders">Anders</option>
+              </select>
+            </label>
+          </div>
+          <div class="row">
+            <label class="field"><span>Lengte (cm)</span><input data-path="profile.heightCm" data-type="number" type="number" inputmode="decimal" /></label>
+            <label class="field"><span>Gewicht (kg)</span><input data-path="profile.weightKg" data-type="number" type="number" inputmode="decimal" step="0.1" /></label>
+          </div>
+          <p class="hint">Weegt je Garmin-weegschaal of de app je, dan gebruikt de coach dat gewicht.</p>
+          <label class="field"><span>Doelen</span><textarea data-path="profile.goals" rows="2" placeholder="Bijvoorbeeld: halve marathon onder 1:45 in april, 5 kilo lichter, beter slapen"></textarea></label>
+          <label class="field"><span>Wat moet de coach nog weten?</span><textarea data-path="profile.notes" rows="3" placeholder="Blessures, werkrooster, hoeveel dagen je kunt trainen, wat je wel en niet eet"></textarea></label>
+        </article>
+
+        <article class="card form">
+          <h2 class="card__title">Streefwaarden per dag</h2>
+          <div class="row row--3">
+            <label class="field"><span>kcal</span><input data-path="targets.kcal" data-type="number" type="number" inputmode="numeric" /></label>
+            <label class="field"><span>Eiwit (g)</span><input data-path="targets.proteinG" data-type="number" type="number" inputmode="numeric" /></label>
+            <label class="field"><span>Vocht (ml)</span><input data-path="targets.waterMl" data-type="number" type="number" inputmode="numeric" step="100" /></label>
+          </div>
+          <p class="hint">Leeg laten mag. Vraag de coach gerust welke waarden bij je doel passen.</p>
+        </article>
+
+        <article class="card form">
+          <h2 class="card__title">Claude</h2>
+          <label class="field"><span>API-sleutel</span><input data-path="claude.apiKey" type="password" placeholder="sk-ant-…" spellcheck="false" autocapitalize="off" /></label>
+          <p class="hint">Maak er een op <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>. De sleutel blijft op dit toestel en gaat alleen naar Anthropic. Zet een bestedingslimiet in je account.</p>
+          <label class="field"><span>Model</span><select id="model-select" data-path="claude.model"></select></label>
+        </article>
+
+        <article class="card form">
+          <h2 class="card__title">Strava en Garmin</h2>
+          <p class="muted small">Een GitHub Action haalt je gegevens op en zet ze versleuteld klaar. De app ontsleutelt ze met deze sleutel; dezelfde sleutel staat als <code>COACH_SYNC_KEY</code> in GitHub.</p>
+          <label class="field"><span>Synchronisatiesleutel</span><input id="sync-key" data-path="sync.key" type="password" spellcheck="false" autocapitalize="off" /></label>
+          <div class="row row--actions">
+            <button id="key-generate" class="button button--ghost" type="button">Nieuwe sleutel</button>
+            <button id="key-copy" class="button button--ghost" type="button">Kopieer</button>
+            <button id="key-show" class="button button--ghost" type="button">Toon</button>
+          </div>
+          <div class="row">
+            <label class="field"><span>GitHub-gebruiker</span><input id="sync-owner" data-path="sync.owner" type="text" spellcheck="false" autocapitalize="off" /></label>
+            <label class="field"><span>Repository</span><input id="sync-repo" data-path="sync.repo" type="text" spellcheck="false" autocapitalize="off" /></label>
+          </div>
+          <p class="hint">Op GitHub Pages vult de app dit zelf in; laat het dan leeg.</p>
+          <label class="field"><span>GitHub-token (optioneel)</span><input data-path="sync.githubToken" type="password" placeholder="github_pat_…" spellcheck="false" autocapitalize="off" /></label>
+          <p class="hint">Alleen nodig voor de knop <em>Nu synchroniseren</em> of een privérepository. Een fine-grained token voor alleen deze repository, met <em>Actions: read and write</em> en <em>Contents: read</em>.</p>
+          <button id="sync-now" class="button button--ghost" type="button">Nu synchroniseren</button>
+          <p id="sync-status" class="hint"></p>
+        </article>
+
+        <article class="card">
+          <h2 class="card__title">Wat de coach onthoudt</h2>
+          <ul id="memory-list" class="entries"></ul>
+          <p id="memory-empty" class="muted small">Nog niets. Vertel de coach over een blessure, een doel of een voorkeur, dan wordt het hier bewaard.</p>
+        </article>
+
+        <article class="card">
+          <h2 class="card__title">Jouw gegevens</h2>
+          <p class="muted small">Voedingslog, gesprekken en instellingen staan alleen op dit toestel. Maak af en toe een back-up.</p>
+          <div class="row row--actions">
+            <button id="backup-export" class="button button--ghost" type="button">Back-up maken</button>
+            <label class="button button--ghost file-button"><input id="backup-import" type="file" accept="application/json" hidden /><span>Back-up terugzetten</span></label>
+          </div>
+          <button id="wipe" class="button button--danger" type="button">Alles van dit toestel wissen</button>
+        </article>
+      </form>
+    </section>
+  </main>
+
+  <nav class="tabbar" role="tablist" aria-label="Hoofdnavigatie">
+    <button id="tab-vandaag" class="tab is-active" role="tab" type="button" data-view="vandaag" aria-selected="true">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>Vandaag</span>
+    </button>
+    <button id="tab-activiteiten" class="tab" role="tab" type="button" data-view="activiteiten" aria-selected="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13h4l2.5-6 4 11 2.5-5h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Activiteiten</span>
+    </button>
+    <button id="tab-voeding" class="tab" role="tab" type="button" data-view="voeding" aria-selected="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 21V3c-2.5 1-4 4-4 8h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Voeding</span>
+    </button>
+    <button id="tab-coach" class="tab" role="tab" type="button" data-view="coach" aria-selected="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v10H10l-4.5 3.5v-3.5H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      <span>Coach</span>
+    </button>
+    <button id="tab-instellingen" class="tab" role="tab" type="button" data-view="instellingen" aria-selected="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="10" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      <span>Instellingen</span>
+    </button>
+  </nav>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

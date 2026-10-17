@@ -40,6 +40,15 @@ jobs:
           node-version: '22'
       - name: Iconen genereren
         run: npm run icons
+      - name: Claude-bibliotheek bundelen voor de coach
+        # Buiten de map die gepubliceerd wordt, zodat node_modules niet
+        # op Pages belandt. De versie staat vast in coach/js/claude.js.
+        run: |
+          mkdir -p "$RUNNER_TEMP/sdk"
+          cd "$RUNNER_TEMP/sdk"
+          npm init -y > /dev/null
+          npm install --silent --no-audit --no-fund @anthropic-ai/sdk@0.130.0 esbuild@0.25.10
+          node "$GITHUB_WORKSPACE/coach/tools/build-sdk.js"
       - uses: actions/configure-pages@v5
         # Zet Pages zo nodig zelf aan, zodat de eerste publicatie niet
         # struikelt over een instelling die nog uit staat.

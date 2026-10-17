@@ -18,3 +18,10 @@ jobs:
           node-version: '22'
       - name: Unit tests
         run: npm test
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Tests van de coach-synchronisatie
+        run: |
+          pip install --quiet cryptography==50.0.1
+          python -m unittest discover -s coach/sync

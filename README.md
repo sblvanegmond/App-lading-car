@@ -17,6 +17,10 @@ Het is een **progressive web app**: statische bestanden, geen account, geen
 API-sleutel, geen server die je moet betalen. Je zet hem op je beginscherm en
 hij gedraagt zich als een gewone app, ook zonder internet.
 
+> **Ook in deze repository: [Coach](coach/README.md)**, een leefstijlcoach met
+> Claude die je Strava-activiteiten, je Garmin-horloge en je voedingslog kent.
+> Hij staat in `coach/` en wordt met dezelfde Pages-publicatie online gezet.
+
 ---
 
 ## Stap 1 — De app online zetten

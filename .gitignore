@@ -6,3 +6,10 @@ package-lock.json
 # De iconen worden gegenereerd door tools/make-icons.js (npm run icons).
 # Ze staan bewust niet in git: de generator is de bron.
 icons/*.png
+coach/icons/*.png
+
+# De Claude-bibliotheek wordt gebundeld door coach/tools/build-sdk.js.
+coach/vendor/
+
+# Python
+__pycache__/
