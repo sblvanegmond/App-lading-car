@@ -32,7 +32,7 @@ class MainActivity : ComponentActivity() {
                 if (settingsOpen) {
                     BackHandler { settingsOpen = false }
                     SettingsScreen(
-                        settings = state.settings,
+                        snapshot = state.snapshot,
                         onUpdate = viewModel::update,
                         onBack = { settingsOpen = false },
                     )

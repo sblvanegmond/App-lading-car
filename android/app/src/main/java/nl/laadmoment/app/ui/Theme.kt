@@ -1,7 +1,11 @@
 package nl.laadmoment.app.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SelectableChipColors
+import androidx.compose.material3.SliderColors
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -88,6 +92,8 @@ private val DarkScheme = darkColorScheme(
     primary = Color(0xFF22E584),
     onPrimary = Color(0xFF04210F),
     secondary = Color(0xFFFBBF24),
+    secondaryContainer = Color(0xFF1E3A2C),
+    onSecondaryContainer = Color(0xFFE8EBF0),
     background = Color(0xFF0F1115),
     onBackground = Color(0xFFE8EBF0),
     surface = Color(0xFF171A21),
@@ -106,6 +112,8 @@ private val LightScheme = lightColorScheme(
     primary = Color(0xFF0E9F5A),
     onPrimary = Color(0xFFFFFFFF),
     secondary = Color(0xFFE09A00),
+    secondaryContainer = Color(0xFFDDF3E6),
+    onSecondaryContainer = Color(0xFF151820),
     background = Color(0xFFF5F6F8),
     onBackground = Color(0xFF151820),
     surface = Color(0xFFFFFFFF),
@@ -127,3 +135,19 @@ fun LaadmomentTheme(content: @Composable () -> Unit) {
         MaterialTheme(colorScheme = if (dark) DarkScheme else LightScheme, content = content)
     }
 }
+
+/** Chosen chips in the app's green instead of the platform's default tint. */
+@Composable
+fun chipColors(): SelectableChipColors = FilterChipDefaults.filterChipColors(
+    selectedContainerColor = LocalSignals.current.bestBand,
+    selectedLabelColor = MaterialTheme.colorScheme.onSurface,
+)
+
+@Composable
+fun sliderColors(): SliderColors = SliderDefaults.colors(
+    thumbColor = LocalSignals.current.best,
+    activeTrackColor = LocalSignals.current.best,
+    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+    activeTickColor = Color.Transparent,
+    inactiveTickColor = Color.Transparent,
+)

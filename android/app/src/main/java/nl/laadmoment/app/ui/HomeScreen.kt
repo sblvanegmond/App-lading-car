@@ -131,6 +131,9 @@ fun HomeScreen(
     }
 }
 
+/** Keeps a number and its unit on one line. */
+private fun nb(text: String) = text.replace(' ', '\u00A0')
+
 private fun subtitle(state: UiState): String {
     val s = state.snapshot
     val place = s.settings.location.name.ifBlank { "Jouw locatie" }
@@ -189,13 +192,14 @@ private fun HeroCard(s: Snapshot, loading: Boolean) {
                         }
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            "${Fmt.kwh(block.kwh)} in ${Fmt.hours(block.hours)} · ${Fmt.euro(block.cost)} · ${Fmt.cents(block.avgPricePerKwh)}/kWh",
+                            "${nb(Fmt.kwh(block.kwh))} · ${nb(Fmt.euro(block.cost))} · ${nb(Fmt.hours(block.hours))} laden",
                             style = MaterialTheme.typography.bodyLarge,
                         )
                         val extras = buildList {
+                            add("gemiddeld ${nb(Fmt.cents(block.avgPricePerKwh))}/kWh")
                             if (block.solarSharePct >= 1) add("${block.solarSharePct.roundToInt()}% uit eigen zon")
                             val saving = plan?.comparison?.savingsVsImmediate ?: 0.0
-                            if (saving > 0.05) add("${Fmt.euro(saving)} goedkoper dan nu meteen laden")
+                            if (saving > 0.05) add("${nb(Fmt.euro(saving))} goedkoper dan nu meteen laden")
                         }
                         if (extras.isNotEmpty()) {
                             Text(extras.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -344,7 +348,7 @@ private fun HourColumn(s: Snapshot, hour: HourInsight, joinLeft: Boolean, joinRi
         }
         Text(dayLabel, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         Text(if (hour.isBest) "⚡" else "", fontSize = 14.sp, lineHeight = 18.sp, modifier = Modifier.height(20.dp))
-        Text(weatherSymbol(hour.slot.weather?.weatherCode, hour.slot.weather?.isDay ?: true), fontSize = 17.sp)
+        Text(weatherSymbol(hour.slot.weather?.weatherCode, hour.slot.weather?.isDay ?: true, hour.slot.weather?.irradiance), fontSize = 17.sp)
         val price = hour.slot.allInPrice
         Text(
             price?.let { (it * 100).roundToInt().toString() } ?: "–",
@@ -434,6 +438,7 @@ private fun NeedCard(s: Snapshot, onUpdate: ((Settings) -> Settings) -> Unit) {
                 onValueChangeFinished = { dragging = null },
                 valueRange = 0f..100f,
                 steps = 19,
+                colors = sliderColors(),
             )
             val chargeHours = if (car.chargerKw > 0) need.grossKwh / car.chargerKw else 0.0
             Text(
@@ -447,11 +452,13 @@ private fun NeedCard(s: Snapshot, onUpdate: ((Settings) -> Settings) -> Unit) {
             Text("Klaar om", style = MaterialTheme.typography.labelLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
+                    colors = chipColors(),
                     selected = !s.settings.readyByEnabled,
                     onClick = { onUpdate { it.copy(readyByEnabled = false) } },
                     label = { Text("Geen haast") },
                 )
                 FilterChip(
+                    colors = chipColors(),
                     selected = s.settings.readyByEnabled,
                     onClick = {
                         if (s.settings.readyByEnabled) {
@@ -469,6 +476,7 @@ private fun NeedCard(s: Snapshot, onUpdate: ((Settings) -> Settings) -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Mode.entries.forEach { mode ->
                     FilterChip(
+                        colors = chipColors(),
                         selected = s.settings.mode == mode,
                         onClick = { onUpdate { it.copy(mode = mode) } },
                         label = { Text(mode.label) },
@@ -510,7 +518,7 @@ private fun HourListCard(s: Snapshot, hours: List<HourInsight>) {
                         fontWeight = if (hour.isNow || hour.isBest) FontWeight.Bold else FontWeight.Normal,
                         modifier = Modifier.width(52.dp),
                     )
-                    Text(weatherSymbol(weather?.weatherCode, weather?.isDay ?: true), fontSize = 18.sp, modifier = Modifier.width(30.dp))
+                    Text(weatherSymbol(weather?.weatherCode, weather?.isDay ?: true, weather?.irradiance), fontSize = 18.sp, modifier = Modifier.width(30.dp))
                     Text(
                         if (hour.slot.pvKw >= 0.05) Fmt.kw(hour.slot.pvKw) else "",
                         style = MaterialTheme.typography.bodyMedium,

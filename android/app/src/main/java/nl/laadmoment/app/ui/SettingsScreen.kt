@@ -7,12 +7,14 @@ import android.app.TimePickerDialog
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,6 +30,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -55,12 +59,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import nl.laadmoment.app.widget.LaadWidget
 import nl.laadmoment.core.Fmt
 import nl.laadmoment.core.PriceSource
 import nl.laadmoment.core.Pricing
 import nl.laadmoment.core.RoofPlane
 import nl.laadmoment.core.Settings
+import nl.laadmoment.core.Snapshot
 import nl.laadmoment.core.parseClock
 import java.math.BigDecimal
 import java.time.LocalTime
@@ -69,7 +76,8 @@ import kotlin.math.abs
 private typealias Update = ((Settings) -> Settings) -> Unit
 
 @Composable
-fun SettingsScreen(settings: Settings, onUpdate: Update, onBack: () -> Unit) {
+fun SettingsScreen(snapshot: Snapshot, onUpdate: Update, onBack: () -> Unit) {
+    val settings = snapshot.settings
     val context = LocalContext.current
     val askPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (!granted) Toast.makeText(context, "Zonder toestemming kan Laadmoment geen meldingen tonen.", Toast.LENGTH_LONG).show()
@@ -99,6 +107,26 @@ fun SettingsScreen(settings: Settings, onUpdate: Update, onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.padding(padding).fillMaxSize(),
         ) {
+            item {
+                Section("📱  Widget op je beginscherm") {
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                        val widthDp = maxWidth.value.toInt()
+                        AndroidView(
+                            factory = { FrameLayout(it) },
+                            update = { frame ->
+                                frame.removeAllViews()
+                                frame.addView(LaadWidget.views(frame.context, snapshot, widthDp, 120).apply(frame.context, frame))
+                            },
+                            modifier = Modifier.fillMaxWidth().height(120.dp),
+                        )
+                    }
+                    if (LaadWidget.canPin(context)) {
+                        Button(onClick = { LaadWidget.requestPin(context) }) { Text("Zet op beginscherm") }
+                    }
+                    Hint("Of houd je beginscherm ingedrukt → Widgets → Laadmoment. De widget ververst elk uur.")
+                }
+            }
+
             item {
                 Section("🚗  Auto") {
                     val car = settings.car
@@ -196,6 +224,7 @@ fun SettingsScreen(settings: Settings, onUpdate: Update, onBack: () -> Unit) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         PriceSource.entries.forEach { source ->
                             FilterChip(
+                                colors = chipColors(),
                                 selected = settings.priceSource == source,
                                 onClick = { onUpdate { it.copy(priceSource = source) } },
                                 label = { Text(source.label) },

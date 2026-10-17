@@ -47,15 +47,20 @@ class LaadWidget : AppWidgetProvider() {
         }
 
         private fun render(context: Context, manager: AppWidgetManager, id: Int, snapshot: Snapshot) {
+            val options = manager.getAppWidgetOptions(id)
+            val widthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250).coerceAtLeast(160)
+            val heightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 110).coerceAtLeast(80)
+            manager.updateAppWidget(id, views(context, snapshot, widthDp, heightDp))
+        }
+
+        /** The widget's views for a given size; the settings screen shows them as a preview. */
+        fun views(context: Context, snapshot: Snapshot, widthDp: Int, heightDp: Int): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.widget_laad)
             val (title, subtitle) = texts(snapshot)
             views.setTextViewText(R.id.widget_title, title)
             views.setTextViewText(R.id.widget_subtitle, subtitle)
 
-            val options = manager.getAppWidgetOptions(id)
             val density = context.resources.displayMetrics.density
-            val widthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250).coerceAtLeast(160)
-            val heightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 110).coerceAtLeast(80)
             val chartWidth = ((widthDp - 28) * density).toInt().coerceIn(200, 1400)
             val chartHeight = ((heightDp - 62) * density).toInt().coerceIn((32 * density).toInt(), (160 * density).toInt())
             views.setImageViewBitmap(R.id.widget_chart, WidgetChart.draw(snapshot.insights, chartWidth, chartHeight, density))
@@ -67,8 +72,18 @@ class LaadWidget : AppWidgetProvider() {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
             views.setOnClickPendingIntent(R.id.widget_root, open)
-            manager.updateAppWidget(id, views)
+            return views
         }
+
+        /** Asks the launcher to place the widget; false when it cannot. */
+        fun requestPin(context: Context): Boolean {
+            val manager = context.getSystemService(AppWidgetManager::class.java) ?: return false
+            if (!manager.isRequestPinAppWidgetSupported) return false
+            return manager.requestPinAppWidget(ComponentName(context, LaadWidget::class.java), null, null)
+        }
+
+        fun canPin(context: Context): Boolean =
+            context.getSystemService(AppWidgetManager::class.java)?.isRequestPinAppWidgetSupported == true
 
         private fun texts(snapshot: Snapshot): Pair<String, String> {
             val plan = snapshot.plan ?: return "Laadmoment" to "Tik om prijzen en weer op te halen"

@@ -58,9 +58,10 @@ Elke push naar `android/` bouwt een nieuwe release (workflow *Android-app*).
 
 ### Widget en meldingen
 
-- **Widget**: houd je beginscherm ingedrukt → *Widgets* → *Laadmoment*. Je
-  ziet het beste moment en de komende 24 uur als gekleurde staafjes met de zon
-  erboven. Hij ververst elk uur.
+- **Widget**: in *Instellingen* staat bovenaan een voorbeeld met de knop *Zet
+  op beginscherm*. Of houd je beginscherm ingedrukt → *Widgets* →
+  *Laadmoment*. Je ziet het beste moment en de komende 24 uur als gekleurde
+  staafjes met de zon erboven. Hij ververst elk uur.
 - **Ochtendoverzicht** en **seintje een kwartier voor het beste moment**: zet
   ze aan onder *Instellingen → Meldingen*. Geen sleutels, geen GitHub-secrets:
   de telefoon doet het zelf.

@@ -54,7 +54,7 @@ fun main() {
             val w = h.slot.weather
             println(
                 "  ${Fmt.dayWord(h.slot.start, now, zone).padEnd(8)} ${Fmt.clock(h.slot.start, zone)}  " +
-                    "${weatherSymbol(w?.weatherCode, w?.isDay ?: true)} ${Fmt.kw(h.slot.pvKw).padStart(7)}  " +
+                    "${weatherSymbol(w?.weatherCode, w?.isDay ?: true, w?.irradiance)} ${Fmt.kw(h.slot.pvKw).padStart(7)}  " +
                     "${(h.slot.allInPrice?.let(Fmt::cents) ?: "?").padStart(8)}  ${h.priceLevel.label.padEnd(15)}" +
                     if (h.isBest) "  <- laden" else "",
             )

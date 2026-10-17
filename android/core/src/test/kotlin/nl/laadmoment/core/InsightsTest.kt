@@ -53,6 +53,14 @@ class InsightsTest {
     }
 
     @Test
+    fun `a clear hour without usable sun does not show a full sun`() {
+        assertEquals("☀️", weatherSymbol(0, isDay = true, irradiance = 500.0))
+        assertEquals("🌅", weatherSymbol(0, isDay = true, irradiance = 3.0))
+        assertEquals("☁️", weatherSymbol(3, isDay = true, irradiance = 3.0))
+        assertEquals("🌙", weatherSymbol(0, isDay = false, irradiance = 0.0))
+    }
+
+    @Test
     fun `own sun lowers what an hour of charging costs`() {
         val settings = settingsNeeding(10.0, chargerKw = 10.0)
         val sunny = Insights.chargePrice(slot("2026-10-17T12:00", 0.20, surplusKw = 4.0), settings)!!

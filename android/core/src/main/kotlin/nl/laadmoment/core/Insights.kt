@@ -140,8 +140,17 @@ object Insights {
     }
 }
 
-/** A weather code from Open-Meteo (WMO) as one symbol. */
-fun weatherSymbol(code: Int?, isDay: Boolean): String = when (code) {
+/**
+ * A weather code from Open-Meteo (WMO) as one symbol. A clear hour in which
+ * the sun is too low to give any power shows the sun on the horizon, so a
+ * sunny symbol never promises energy that is not there.
+ */
+fun weatherSymbol(code: Int?, isDay: Boolean, irradiance: Double? = null): String = when {
+    isDay && irradiance != null && irradiance < 15 && (code ?: 1) in 0..2 -> "🌅"
+    else -> symbolFor(code, isDay)
+}
+
+private fun symbolFor(code: Int?, isDay: Boolean): String = when (code) {
     0 -> if (isDay) "☀️" else "🌙"
     1 -> if (isDay) "🌤️" else "🌙"
     2 -> if (isDay) "⛅" else "☁️"
