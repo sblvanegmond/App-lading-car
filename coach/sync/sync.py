@@ -814,6 +814,11 @@ def history_days_from(env):
 
 
 def run(args, env, *, now=None, today=None, session=None):
+    if not (env.get("COACH_SYNC_KEY") or "").strip() and not (strava_configured(env) or garmin_configured(env)):
+        # Scheduled runs start as soon as the workflow is on the default
+        # branch; until the secrets exist that is not an error worth a mail.
+        log("::notice::Coach is nog niet ingesteld: geen COACH_SYNC_KEY en geen Strava- of Garmin-secrets. Zie coach/README.md.")
+        return 0
     try:
         key = normalise_key(env.get("COACH_SYNC_KEY"))
     except CryptoError as err:
