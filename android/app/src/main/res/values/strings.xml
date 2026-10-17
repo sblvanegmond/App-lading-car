@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Laadmoment</string>
+    <string name="widget_name">Laadmoment</string>
+    <string name="widget_description">De beste uren om te laden: zon en stroomprijs in één oogopslag.</string>
+    <string name="widget_loading">Gegevens ophalen…</string>
+</resources>
