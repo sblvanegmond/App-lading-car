@@ -13,11 +13,87 @@ het beste kunt laden. De app weegt drie dingen tegen elkaar af:
 Het resultaat is een concreet laadvenster: *"14:00 – 16:00, 22 kWh, € 2,72,
 19% uit eigen zon"*, met de kosten afgezet tegen meteen laden.
 
-Het is een **progressive web app**: statische bestanden, geen account, geen
-API-sleutel, geen server die je moet betalen. Je zet hem op je beginscherm en
-hij gedraagt zich als een gewone app, ook zonder internet.
+Er zijn twee versies die hetzelfde rekenen:
+
+- een **Android-app** die je als APK installeert, met een widget voor je
+  beginscherm en meldingen zonder verdere opzet (hieronder);
+- een **progressive web app**: statische bestanden, geen account, geen
+  API-sleutel, geen server die je moet betalen. Die werkt ook op een iPhone
+  (vanaf *Stap 1*).
 
 ---
+
+## Android-app
+
+### Installeren
+
+1. Open op je Android-telefoon in Chrome:
+   **https://github.com/sblvanegmond/App-lading-car/releases/latest/download/Laadmoment.apk**
+2. Chrome downloadt `Laadmoment.apk`. Tik op de melding *Openen*.
+3. De eerste keer vraagt Android of Chrome apps mag installeren. Zet dat aan
+   en ga terug.
+4. Play Protect kan waarschuwen dat de app onbekend is. Tik op *Details* →
+   *Toch installeren*. De app komt niet uit de Play Store, daarom die vraag.
+
+Een nieuwere versie installeer je precies zo; je instellingen blijven staan.
+Elke push naar `android/` bouwt een nieuwe release (workflow *Android-app*).
+
+### Wat je ziet
+
+- **Bovenaan het beste moment**: *"Vandaag 12:00 – 15:00"*, met waarom
+  (☀️ zon op je panelen, 💶 goedkoopste uren), hoeveel kWh, wat het kost en
+  hoeveel je bespaart ten opzichte van meteen laden.
+- **Wat nu**: één zin over het huidige uur, bijvoorbeeld *"Nu duur (31,2 ct).
+  Wacht liever tot vandaag 12:00."*
+- **Komende uren**: een balk die je opzij schuift. Per uur het weer, de prijs
+  in ct/kWh als gekleurde staaf (groen goedkoop, grijs gemiddeld, rood duur),
+  de zonopbrengst in geel eronder, en ⚡ met een groene band op de uren
+  waarin je moet laden. De zon van morgen staat er al in voordat de prijzen
+  van morgen bekend zijn.
+- **Hoeveel moet erbij**: schuif je accu van nu naar je doel en de groene uren
+  passen zich meteen aan. Kies *Geen haast* of een tijd waarop de auto klaar
+  moet zijn, en *Goedkoopst*, *Balans* of *Max zon*.
+- **Per uur**: de all-in prijs en, als de zon meehelpt, wat laden dan echt
+  kost (*"met zon 18,2 ct"*).
+
+### Widget en meldingen
+
+- **Widget**: houd je beginscherm ingedrukt → *Widgets* → *Laadmoment*. Je
+  ziet het beste moment en de komende 24 uur als gekleurde staafjes met de zon
+  erboven. Hij ververst elk uur.
+- **Ochtendoverzicht** en **seintje een kwartier voor het beste moment**: zet
+  ze aan onder *Instellingen → Meldingen*. Geen sleutels, geen GitHub-secrets:
+  de telefoon doet het zelf.
+
+### Instellingen
+
+Dezelfde gegevens als in de tabel bij *Stap 3* hieronder: auto, dakvlakken
+(één of twee, met richting), omvormer, basisverbruik, tarieven, saldering en
+locatie (standaard Grootegast). De energiebelasting staat op het tarief van
+2026, € 0,0916 per kWh exclusief btw.
+
+### Hoe het gebouwd is
+
+| Map | Wat |
+|---|---|
+| `android/core` | De rekenkern in gewone Kotlin: prijzen en weer ophalen, pv-model, planner, de teksten. Getest met `./gradlew :core:test`. |
+| `android/app` | De Android-app (Jetpack Compose), de widget en de achtergrondtaken. |
+| `android/tools/smoke.sh` | Installeert de APK op een emulator, maakt schermafbeeldingen en faalt als de app crasht. |
+| `.github/workflows/android.yml` | Tests, een controle tegen de echte prijs- en weerdiensten, de APK, de emulatortest en de release. |
+
+De prijzen komen van EnergyZero; geeft die niets, of nog niet de prijzen van
+morgen, dan springt Energy-Charts (Fraunhofer ISE) in met dezelfde
+EPEX-prijzen. Kwartierprijzen worden per uur gemiddeld.
+
+De APK is ondertekend met een vaste sleutel die in de repository staat
+(`android/app/laadmoment.keystore`), zodat een update altijd over de vorige
+heen installeert. Dat is prima voor een app die je zelf installeert. Wil je
+hem ooit in een winkel zetten, maak dan eerst een eigen sleutel.
+
+---
+
+## Web-app
+
 
 ## Stap 1 — De app online zetten
 
