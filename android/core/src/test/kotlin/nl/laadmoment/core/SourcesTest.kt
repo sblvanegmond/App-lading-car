@@ -62,62 +62,53 @@ class SourcesTest {
     }
 
     @Test
-    fun `the weather request carries the roof and the place`() {
-        val url = OpenMeteo.url(Location(latitude = 53.2069, longitude = 6.2903), RoofPlane(tilt = 35.4, azimuth = -90.0))
+    fun `the weather request carries the place`() {
+        val url = OpenMeteo.url(Location(latitude = 53.2069, longitude = 6.2903))
         assertContains(url, "latitude=53.2069&longitude=6.2903")
-        assertContains(url, "tilt=35&azimuth=-90")
+        assertContains(url, "sunshine_duration")
         assertContains(url, "timeformat=unixtime")
     }
 
-    private fun meteo(gti: List<Double?>, start: Long): String {
-        val times = gti.indices.map { start + it * 3600L }
-        val values = gti.joinToString(",") { it?.toString() ?: "null" }
-        val ghi = gti.joinToString(",") { ((it ?: 0.0) * 0.9).toString() }
-        val zeros = gti.joinToString(",") { "0" }
-        val codes = gti.joinToString(",") { "1" }
-        val days = start - 12 * 3600 // local midnight is not the point here
+    private fun meteo(radiation: List<Double?>, start: Long): String {
+        val times = radiation.indices.map { start + it * 3600L }
+        val values = radiation.joinToString(",") { it?.toString() ?: "null" }
+        val all = { v: String -> radiation.joinToString(",") { v } }
+        val midnight = start - 12 * 3600
         return """{"utc_offset_seconds":7200,"hourly":{"time":[${times.joinToString(",")}],
-            "global_tilted_irradiance":[$values],"shortwave_radiation":[$ghi],
-            "temperature_2m":[${gti.joinToString(",") { "14.5" }}],"cloud_cover":[$zeros],
-            "sunshine_duration":[${gti.joinToString(",") { "1800" }}],"weather_code":[$codes],"is_day":[${gti.joinToString(",") { "1" }}]},
-            "daily":{"time":[$days],"sunrise":[${days + 8 * 3600}],"sunset":[${days + 19 * 3600}],"sunshine_duration":[18000]}}"""
+            "shortwave_radiation":[$values],"sunshine_duration":[${all("1800")}],
+            "cloud_cover":[${all("20")}],"temperature_2m":[${all("14.5")}],
+            "weather_code":[${all("1")}],"is_day":[${all("1")}]},
+            "daily":{"time":[$midnight],"sunrise":[${midnight + 8 * 3600}],"sunset":[${midnight + 19 * 3600}],"sunshine_duration":[18000]}}"""
     }
 
     @Test
-    fun `irradiance stamped at the end of the hour belongs to that hour`() {
+    fun `sunlight stamped at the end of the hour belongs to that hour`() {
         val start = at("2026-10-17T12:00").epochSecond
-        val forecast = OpenMeteo.parse(listOf(meteo(listOf(100.0, 600.0, 300.0), start)), listOf(RoofPlane()), "k")
+        val forecast = OpenMeteo.parse(meteo(listOf(100.0, 600.0, 300.0), start), "k")
         // 12:00-13:00 is described by the value stamped 13:00.
-        assertEquals(600.0, forecast.hours[0].gti[0], 1e-9)
-        assertEquals(300.0, forecast.hours[1].gti[0], 1e-9)
+        assertEquals(600.0, forecast.hours[0].radiation!!, 1e-9)
+        assertEquals(300.0, forecast.hours[1].radiation!!, 1e-9)
         // The last hour has nothing after it and keeps its own value.
-        assertEquals(300.0, forecast.hours[2].gti[0], 1e-9)
+        assertEquals(300.0, forecast.hours[2].radiation!!, 1e-9)
         assertEquals(30.0, forecast.hours[0].sunshineMinutes!!, 1e-9)
         assertEquals(14.5, forecast.hours[0].tempC!!, 1e-9)
         assertEquals(1, forecast.hours[0].weatherCode)
+        assertEquals(true, forecast.hours[0].isDay)
         assertEquals(5.0, forecast.days[0].sunshineHours!!, 1e-9)
+        assertEquals("2026-10-17", forecast.days[0].date)
     }
 
     @Test
-    fun `two roof planes each keep their own irradiance`() {
+    fun `missing sunlight stays unknown instead of breaking the hour`() {
         val start = at("2026-10-17T12:00").epochSecond
-        val east = meteo(listOf(100.0, 200.0), start)
-        val west = meteo(listOf(300.0, 400.0), start)
-        val forecast = OpenMeteo.parse(listOf(east, west), listOf(RoofPlane(azimuth = -90.0), RoofPlane(azimuth = 90.0)), "k")
-        assertEquals(listOf(200.0, 400.0), forecast.hours[0].gti)
-    }
-
-    @Test
-    fun `missing tilted irradiance falls back to the flat value`() {
-        val start = at("2026-10-17T12:00").epochSecond
-        val forecast = OpenMeteo.parse(listOf(meteo(listOf(null, null), start)), listOf(RoofPlane()), "k")
-        assertEquals(0.0, forecast.hours[0].gti[0], 1e-9)
-        assertTrue(forecast.hours.all { it.gti[0] >= 0 })
+        val forecast = OpenMeteo.parse(meteo(listOf(null, null), start), "k")
+        assertNull(forecast.hours[0].radiation)
+        assertEquals(0.0, forecast.hours[0].irradiance, 1e-9)
     }
 
     @Test
     fun `a response without hours is refused with a readable message`() {
-        val error = assertFailsWith<DataException> { OpenMeteo.parse(listOf("""{"hourly":{}}"""), listOf(RoofPlane()), "k") }
+        val error = assertFailsWith<DataException> { OpenMeteo.parse("""{"hourly":{}}""", "k") }
         assertContains(error.message!!, "Weerdata")
     }
 
@@ -180,12 +171,24 @@ class SourcesTest {
 
     @Test
     fun `settings and forecasts survive a round trip through JSON`() {
-        val settings = Settings(car = CarSettings(batteryKwh = 77.0), mode = Mode.SOLAR)
+        val settings = Settings(bestHours = 7, ranking = Ranking.PRICE_AND_SUN)
         assertEquals(settings, Settings.fromJson(settings.toJson()))
-        assertEquals(Settings(), Settings.fromJson("""{"onbekend":1,"car":{"batteryKwh":"kapot"}}""").copy(car = CarSettings()))
         assertEquals(Settings(), Settings.fromJson("geen json"))
 
         val forecast = Forecast(1L, listOf(PricePoint(3600, 0.1)), PriceSource.ENERGYZERO, null, WeatherForecast("k", emptyList(), emptyList()))
         assertEquals(forecast, Forecast.fromJson(forecast.toJson()))
+    }
+
+    @Test
+    fun `settings saved by the first version still load`() {
+        val old = """{"location":{"name":"Grootegast","latitude":53.2069,"longitude":6.2903},
+            "pv":{"arrays":[{"label":"Hoofdveld","kWp":4.0,"tilt":35.0,"azimuth":0.0}]},
+            "car":{"batteryKwh":58.0},"mode":"BALANCED","readyByEnabled":false,
+            "tariffs":{"supplierMarkupPerKwh":0.03,"energyTaxPerKwh":0.0916,"vatPct":21.0,"feedInPerKwh":0.05,"netMetering":false},
+            "notifications":{"morningEnabled":true,"morningTime":"06:45","windowReminder":false}}"""
+        val settings = Settings.fromJson(old)
+        assertEquals(5, settings.bestHours)
+        assertEquals(0.03, settings.tariffs.supplierMarkupPerKwh, 1e-9)
+        assertEquals("06:45", settings.notifications.morningTime)
     }
 }

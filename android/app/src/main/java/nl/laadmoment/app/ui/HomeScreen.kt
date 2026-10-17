@@ -2,6 +2,7 @@
 
 package nl.laadmoment.app.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,7 +36,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RangeSlider
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -43,10 +44,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,7 +51,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -63,15 +59,12 @@ import nl.laadmoment.core.Briefing
 import nl.laadmoment.core.DaySummary
 import nl.laadmoment.core.Fmt
 import nl.laadmoment.core.HourInsight
-import nl.laadmoment.core.Insights
-import nl.laadmoment.core.Mode
+import nl.laadmoment.core.Ranking
 import nl.laadmoment.core.Settings
 import nl.laadmoment.core.Snapshot
-import nl.laadmoment.core.energyNeed
 import nl.laadmoment.core.weatherSymbol
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
-import kotlin.math.max
 import kotlin.math.roundToInt
 
 private val DAY_TITLE = DateTimeFormatter.ofPattern("EEEE d MMMM", Fmt.NL)
@@ -117,9 +110,9 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 if (state.errors.isNotEmpty()) item { ErrorCard(state.errors, s.hasPrices) }
-                item { HeroCard(s, state.loading) }
+                item { BestHoursCard(s, state.loading) }
+                item { ChoiceCard(s.settings, onUpdate) }
                 if (s.insights.isNotEmpty()) item { StripCard(s) }
-                item { NeedCard(s, onUpdate) }
                 val days = s.insights.groupBy { it.slot.start.atZone(s.zone).toLocalDate() }
                 for ((date, hours) in days) {
                     item(key = "dag-$date") { HourListCard(s, hours) }
@@ -132,28 +125,28 @@ fun HomeScreen(
 }
 
 /** Keeps a number and its unit on one line. */
-private fun nb(text: String) = text.replace(' ', '\u00A0')
+private fun nb(text: String) = text.replace(' ', ' ')
 
 private fun subtitle(state: UiState): String {
     val s = state.snapshot
-    val place = s.settings.location.name.ifBlank { "Jouw locatie" }
     val fetched = s.forecast?.fetchedAt
     return when {
-        state.loading && fetched == null -> "$place · ophalen…"
-        fetched == null -> place
-        else -> "$place · bijgewerkt ${Fmt.dayWord(fetched, s.now, s.zone).takeIf { it != "vandaag" }?.plus(" ") ?: ""}${Fmt.clock(fetched, s.zone)}"
+        state.loading && fetched == null -> "${s.settings.location.name} · ophalen…"
+        fetched == null -> s.settings.location.name
+        else -> {
+            val day = Fmt.dayWord(fetched, s.now, s.zone).takeIf { it != "vandaag" }?.plus(" ") ?: ""
+            "${s.settings.location.name} · bijgewerkt $day${Fmt.clock(fetched, s.zone)}"
+        }
     }
 }
 
 /* ------------------------------------------------------------------ */
-/* The answer                                                          */
+/* The answer: when to charge                                          */
 /* ------------------------------------------------------------------ */
 
 @Composable
-private fun HeroCard(s: Snapshot, loading: Boolean) {
+private fun BestHoursCard(s: Snapshot, loading: Boolean) {
     val signals = LocalSignals.current
-    val plan = s.plan
-    val block = plan?.blocks?.firstOrNull()
     Card(
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -161,7 +154,7 @@ private fun HeroCard(s: Snapshot, loading: Boolean) {
         Box(Modifier.background(Brush.verticalGradient(listOf(signals.bestBand, Color.Transparent)))) {
             Column(Modifier.fillMaxWidth().padding(20.dp)) {
                 Text(
-                    "⚡  BESTE MOMENT OM TE LADEN",
+                    if (s.best.size == 1) "⚡  HET BESTE UUR OM TE LADEN" else "⚡  DE ${s.best.size} BESTE UREN OM TE LADEN",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = signals.best,
@@ -169,55 +162,43 @@ private fun HeroCard(s: Snapshot, loading: Boolean) {
                 )
                 Spacer(Modifier.height(10.dp))
                 when {
-                    block != null -> {
-                        Text(
-                            Fmt.dayWord(block.from, s.now, s.zone).replaceFirstChar { it.uppercase() },
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            Fmt.range(block.from, block.to, s.zone),
-                            fontSize = 40.sp,
-                            lineHeight = 44.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        val reasons = Insights.reasons(block, s.insights)
-                        if (reasons.isNotEmpty()) {
-                            Spacer(Modifier.height(10.dp))
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                reasons.forEach { reason ->
-                                    Pill(reason, if (reason.contains("zon")) signals.sunBand else signals.bestBand)
+                    s.windows.isNotEmpty() -> {
+                        s.windows.take(4).forEachIndexed { i, window ->
+                            if (i > 0) Spacer(Modifier.height(12.dp))
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        Fmt.dayWord(window.from, s.now, s.zone).replaceFirstChar { it.uppercase() },
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        Fmt.range(window.from, window.to, s.zone),
+                                        fontSize = if (i == 0) 36.sp else 28.sp,
+                                        lineHeight = if (i == 0) 40.sp else 32.sp,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    if (window.sunny) Text("☀️ zon", style = MaterialTheme.typography.labelLarge, color = signals.sun)
+                                    Text(
+                                        "gem. ${nb(Fmt.cents(window.avgPrice))}",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                    Text(
+                                        if (window.length == 1) "1 uur" else "${window.length} uur",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
                             }
                         }
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            "${nb(Fmt.kwh(block.kwh))} · ${nb(Fmt.euro(block.cost))} · ${nb(Fmt.hours(block.hours))} laden",
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                        val extras = buildList {
-                            add("gemiddeld ${nb(Fmt.cents(block.avgPricePerKwh))}/kWh")
-                            if (block.solarSharePct >= 1) add("${block.solarSharePct.roundToInt()}% uit eigen zon")
-                            val saving = plan?.comparison?.savingsVsImmediate ?: 0.0
-                            if (saving > 0.05) add("${nb(Fmt.euro(saving))} goedkoper dan nu meteen laden")
+                        val more = s.windows.size - 4
+                        if (more > 0) {
+                            Spacer(Modifier.height(8.dp))
+                            Text("en nog $more ${if (more == 1) "los uur" else "losse uren"}, zie hieronder", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        if (extras.isNotEmpty()) {
-                            Text(extras.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        plan?.blocks.orEmpty().drop(1).take(3).forEach { more ->
-                            Text(
-                                "Daarna ook ${Briefing.window(more, s.now, s.zone)} · ${Fmt.kwh(more.kwh)}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                    plan != null && plan.need.grossKwh <= 1e-6 -> {
-                        Text("Accu is vol genoeg", fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                        Text("Je accustand zit al op je doel. Schuif hieronder als je meer wilt laden.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    plan != null -> {
-                        Text("Geen laadmoment", fontSize = 30.sp, fontWeight = FontWeight.Bold)
                     }
                     loading -> Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.5.dp)
@@ -225,26 +206,19 @@ private fun HeroCard(s: Snapshot, loading: Boolean) {
                         Text("Prijzen en weer ophalen…", style = MaterialTheme.typography.titleMedium)
                     }
                     else -> {
-                        Text("Nog geen gegevens", fontSize = 30.sp, fontWeight = FontWeight.Bold)
+                        Text("Nog geen prijzen", fontSize = 30.sp, fontWeight = FontWeight.Bold)
                         Text("Trek het scherm omlaag om prijzen en weer op te halen.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
 
-                plan?.warnings?.forEach { warning ->
-                    Spacer(Modifier.height(8.dp))
-                    Text("⚠️ $warning", style = MaterialTheme.typography.bodyMedium, color = signals.warning)
-                }
-
-                val advice = Briefing.now(s.insights, plan, s.now, s.zone)
-                if (advice != null) {
+                val advice = Briefing.now(s)
+                if (advice != null && s.windows.isNotEmpty()) {
                     Spacer(Modifier.height(16.dp))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Spacer(Modifier.height(12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier.size(10.dp).clip(CircleShape)
-                                .background(if (advice.good) signals.best else signals.forLevel(s.insights.first { it.isNow }.priceLevel)),
-                        )
+                        val now = s.insights.first { it.isNow }
+                        Box(Modifier.size(10.dp).clip(CircleShape).background(if (advice.good) signals.best else signals.forLevel(now.priceLevel)))
                         Spacer(Modifier.width(10.dp))
                         Text(advice.text, style = MaterialTheme.typography.bodyMedium)
                     }
@@ -254,23 +228,59 @@ private fun HeroCard(s: Snapshot, loading: Boolean) {
     }
 }
 
+/** How many hours, and whether the sun counts. */
 @Composable
-private fun Pill(text: String, background: Color, modifier: Modifier = Modifier) {
-    Surface(shape = CircleShape, color = background, modifier = modifier) {
-        Text(
-            text,
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-        )
+private fun ChoiceCard(settings: Settings, onUpdate: ((Settings) -> Settings) -> Unit) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Hoeveel uren laten zien?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                StepButton("−", enabled = settings.bestHours > Settings.MIN_BEST_HOURS) {
+                    onUpdate { it.copy(bestHours = (it.bestHours - 1).coerceAtLeast(Settings.MIN_BEST_HOURS)) }
+                }
+                Text(
+                    settings.bestHours.toString(),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.width(44.dp),
+                    textAlign = TextAlign.Center,
+                )
+                StepButton("+", enabled = settings.bestHours < Settings.MAX_BEST_HOURS) {
+                    onUpdate { it.copy(bestHours = (it.bestHours + 1).coerceAtMost(Settings.MAX_BEST_HOURS)) }
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Ranking.entries.forEach { ranking ->
+                    FilterChip(
+                        colors = chipColors(),
+                        selected = settings.ranking == ranking,
+                        onClick = { onUpdate { it.copy(ranking = ranking) } },
+                        label = { Text(ranking.label) },
+                    )
+                }
+            }
+            Text(settings.ranking.hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun StepButton(label: String, enabled: Boolean, onClick: () -> Unit) {
+    OutlinedIconButton(
+        onClick = onClick,
+        enabled = enabled,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    ) {
+        Text(label, fontSize = 22.sp, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 private fun ErrorCard(errors: List<String>, hasData: Boolean) {
-    val signals = LocalSignals.current
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(16.dp)) {
-            Text("⚠️ Niet alles kon worden opgehaald", fontWeight = FontWeight.Bold, color = signals.warning)
+            Text("⚠️ Niet alles kon worden opgehaald", fontWeight = FontWeight.Bold, color = LocalSignals.current.warning)
             errors.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             if (hasData) Text("Je ziet de laatst bekende gegevens.", style = MaterialTheme.typography.bodySmall)
         }
@@ -281,19 +291,25 @@ private fun ErrorCard(errors: List<String>, hasData: Boolean) {
 /* The hour strip                                                      */
 /* ------------------------------------------------------------------ */
 
+/** 0 to 1: minutes of sunshine in the hour, or the sunlight when those are missing. */
+private fun sunShare(hour: HourInsight): Float {
+    val weather = hour.slot.weather ?: return 0f
+    val minutes = weather.sunshineMinutes
+    return if (minutes != null) (minutes / 60).toFloat().coerceIn(0f, 1f) else (weather.irradiance / 700).toFloat().coerceIn(0f, 1f)
+}
+
 @Composable
 private fun StripCard(s: Snapshot) {
     val hours = s.insights
     val prices = hours.mapNotNull { it.slot.allInPrice }
     val low = prices.minOrNull() ?: 0.0
     val high = prices.maxOrNull() ?: 1.0
-    val pvMax = max(0.5, hours.maxOf { it.slot.pvKw })
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(vertical = 16.dp)) {
             Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Komende uren", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
-                Text("ct/kWh · zon in kW", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("prijs in ct/kWh", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(8.dp))
             LazyRow(contentPadding = PaddingValues(horizontal = 12.dp)) {
@@ -305,7 +321,6 @@ private fun StripCard(s: Snapshot) {
                         joinRight = hours.getOrNull(i + 1)?.isBest == true,
                         low = low,
                         high = high,
-                        pvMax = pvMax,
                     )
                 }
             }
@@ -316,19 +331,16 @@ private fun StripCard(s: Snapshot) {
 }
 
 @Composable
-private fun HourColumn(s: Snapshot, hour: HourInsight, joinLeft: Boolean, joinRight: Boolean, low: Double, high: Double, pvMax: Double) {
+private fun HourColumn(s: Snapshot, hour: HourInsight, joinLeft: Boolean, joinRight: Boolean, low: Double, high: Double) {
     val signals = LocalSignals.current
     val local = hour.slot.start.atZone(s.zone)
     val divider = MaterialTheme.colorScheme.outline
-    val band = when {
-        !hour.isBest -> RoundedCornerShape(0.dp)
-        else -> RoundedCornerShape(
-            topStart = if (joinLeft) 0.dp else 12.dp,
-            bottomStart = if (joinLeft) 0.dp else 12.dp,
-            topEnd = if (joinRight) 0.dp else 12.dp,
-            bottomEnd = if (joinRight) 0.dp else 12.dp,
-        )
-    }
+    val band = RoundedCornerShape(
+        topStart = if (joinLeft) 0.dp else 12.dp,
+        bottomStart = if (joinLeft) 0.dp else 12.dp,
+        topEnd = if (joinRight) 0.dp else 12.dp,
+        bottomEnd = if (joinRight) 0.dp else 12.dp,
+    )
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -348,7 +360,8 @@ private fun HourColumn(s: Snapshot, hour: HourInsight, joinLeft: Boolean, joinRi
         }
         Text(dayLabel, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         Text(if (hour.isBest) "⚡" else "", fontSize = 14.sp, lineHeight = 18.sp, modifier = Modifier.height(20.dp))
-        Text(weatherSymbol(hour.slot.weather?.weatherCode, hour.slot.weather?.isDay ?: true, hour.slot.weather?.irradiance), fontSize = 17.sp)
+        val weather = hour.slot.weather
+        Text(weatherSymbol(weather?.weatherCode, weather?.isDay ?: true, weather?.irradiance), fontSize = 17.sp)
         val price = hour.slot.allInPrice
         Text(
             price?.let { (it * 100).roundToInt().toString() } ?: "–",
@@ -373,12 +386,12 @@ private fun HourColumn(s: Snapshot, hour: HourInsight, joinLeft: Boolean, joinRi
             modifier = Modifier.padding(vertical = 3.dp),
         )
         Box(Modifier.height(28.dp).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-            val pv = hour.slot.pvKw
-            if (pv > 0.02) {
+            val sun = sunShare(hour)
+            if (sun > 0.02f) {
                 Box(
                     Modifier
                         .width(20.dp)
-                        .fillMaxHeight((pv / pvMax).toFloat().coerceIn(0.06f, 1f))
+                        .fillMaxHeight(sun.coerceIn(0.08f, 1f))
                         .clip(RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp))
                         .background(signals.sun),
                 )
@@ -391,7 +404,7 @@ private fun HourColumn(s: Snapshot, hour: HourInsight, joinLeft: Boolean, joinRi
 private fun Legend(modifier: Modifier = Modifier) {
     val signals = LocalSignals.current
     FlowRow(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        LegendItem(signals.best, "⚡ laden")
+        LegendItem(signals.best, "⚡ beste uren")
         LegendItem(signals.cheap, "goedkoop")
         LegendItem(signals.normal, "gemiddeld")
         LegendItem(signals.expensive, "duur")
@@ -405,86 +418,6 @@ private fun LegendItem(color: Color, label: String) {
         Box(Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(color))
         Spacer(Modifier.width(6.dp))
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-/* ------------------------------------------------------------------ */
-/* How much to charge, until when, and how                             */
-/* ------------------------------------------------------------------ */
-
-@Composable
-private fun NeedCard(s: Snapshot, onUpdate: ((Settings) -> Settings) -> Unit) {
-    val context = LocalContext.current
-    val car = s.settings.car
-    var dragging by remember { mutableStateOf<ClosedFloatingPointRange<Float>?>(null) }
-    val saved = car.currentSocPct.toFloat().coerceIn(0f, 100f)
-    val range = dragging ?: saved..car.targetSocPct.toFloat().coerceIn(saved, 100f)
-    val need = energyNeed(car)
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Hoeveel moet erbij?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.weight(1f))
-                Text("${range.start.roundToInt()}% → ${range.endInclusive.roundToInt()}%", style = MaterialTheme.typography.titleMedium)
-            }
-            RangeSlider(
-                value = range,
-                onValueChange = { value ->
-                    dragging = value
-                    val from = (value.start / 5).roundToInt() * 5.0
-                    val to = (value.endInclusive / 5).roundToInt() * 5.0
-                    onUpdate { it.copy(car = it.car.copy(currentSocPct = from, targetSocPct = to)) }
-                },
-                onValueChangeFinished = { dragging = null },
-                valueRange = 0f..100f,
-                steps = 19,
-                colors = sliderColors(),
-            )
-            val chargeHours = if (car.chargerKw > 0) need.grossKwh / car.chargerKw else 0.0
-            Text(
-                if (need.grossKwh <= 1e-6) "Niets te laden."
-                else "${Fmt.kwh(need.grossKwh)} uit het stopcontact · ongeveer ${Fmt.hours(chargeHours)} op ${Fmt.kw(car.chargerKw)}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(Modifier.height(14.dp))
-            Text("Klaar om", style = MaterialTheme.typography.labelLarge)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    colors = chipColors(),
-                    selected = !s.settings.readyByEnabled,
-                    onClick = { onUpdate { it.copy(readyByEnabled = false) } },
-                    label = { Text("Geen haast") },
-                )
-                FilterChip(
-                    colors = chipColors(),
-                    selected = s.settings.readyByEnabled,
-                    onClick = {
-                        if (s.settings.readyByEnabled) {
-                            pickTime(context, s.settings.readyBy) { time -> onUpdate { it.copy(readyBy = time) } }
-                        } else {
-                            onUpdate { it.copy(readyByEnabled = true) }
-                        }
-                    },
-                    label = { Text(if (s.settings.readyByEnabled) "Om ${s.settings.readyBy} ✎" else "Om ${s.settings.readyBy}") },
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-            Text("Strategie", style = MaterialTheme.typography.labelLarge)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Mode.entries.forEach { mode ->
-                    FilterChip(
-                        colors = chipColors(),
-                        selected = s.settings.mode == mode,
-                        onClick = { onUpdate { it.copy(mode = mode) } },
-                        label = { Text(mode.label) },
-                    )
-                }
-            }
-            Text(s.settings.mode.hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
     }
 }
 
@@ -511,7 +444,7 @@ private fun HourListCard(s: Snapshot, hours: List<HourInsight>) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(if (hour.isBest) signals.bestBand else Color.Transparent)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp, vertical = 9.dp),
                 ) {
                     Text(
                         Fmt.clock(hour.slot.start, s.zone),
@@ -519,30 +452,25 @@ private fun HourListCard(s: Snapshot, hours: List<HourInsight>) {
                         modifier = Modifier.width(52.dp),
                     )
                     Text(weatherSymbol(weather?.weatherCode, weather?.isDay ?: true, weather?.irradiance), fontSize = 18.sp, modifier = Modifier.width(30.dp))
+                    val minutes = weather?.sunshineMinutes?.roundToInt() ?: 0
                     Text(
-                        if (hour.slot.pvKw >= 0.05) Fmt.kw(hour.slot.pvKw) else "",
+                        if (minutes >= 5) "$minutes min zon" else "",
                         style = MaterialTheme.typography.bodyMedium,
                         color = signals.sun,
-                        modifier = Modifier.width(64.dp),
+                        modifier = Modifier.width(96.dp),
                     )
                     Spacer(Modifier.weight(1f))
-                    Column(horizontalAlignment = Alignment.End) {
-                        val price = hour.slot.allInPrice
-                        Text(
-                            price?.let(Fmt::cents) ?: "prijs volgt",
-                            fontWeight = FontWeight.Bold,
-                            color = if (price == null) MaterialTheme.colorScheme.onSurfaceVariant else signals.forLevel(hour.priceLevel),
-                        )
-                        val withSun = hour.chargePricePerKwh
-                        if (price != null && withSun != null && withSun < price - 0.005) {
-                            Text("met zon ${Fmt.cents(withSun)}", style = MaterialTheme.typography.labelSmall, color = signals.sun)
-                        }
-                    }
+                    val price = hour.slot.allInPrice
+                    Text(
+                        price?.let(Fmt::cents) ?: "prijs volgt",
+                        fontWeight = FontWeight.Bold,
+                        color = if (price == null) MaterialTheme.colorScheme.onSurfaceVariant else signals.forLevel(hour.priceLevel),
+                    )
                     Box(Modifier.width(78.dp), contentAlignment = Alignment.CenterEnd) {
                         when {
                             hour.isBest -> Surface(shape = CircleShape, color = signals.best) {
                                 Text(
-                                    "⚡ laden",
+                                    "⚡ beste",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = signals.bestOn,
@@ -566,7 +494,7 @@ private fun HourListCard(s: Snapshot, hours: List<HourInsight>) {
 private fun SunDaysCard(s: Snapshot) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Zon per dag", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Zon en prijs per dag", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             s.days.forEach { day -> SunDayRow(s, day) }
         }
     }
@@ -583,23 +511,30 @@ private fun SunDayRow(s: Snapshot, day: DaySummary) {
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
-            Text("☀️ ${Fmt.kwh(day.solarKwh)}", color = signals.sun, fontWeight = FontWeight.Bold)
+            day.sunshineHours?.let {
+                Text("☀️ ${nb(Fmt.decimal(it, 1))} zonuren", color = signals.sun, fontWeight = FontWeight.Bold)
+            }
         }
-        val facts = buildList {
-            day.sunshineHours?.let { add("${Fmt.decimal(it, 1)} zonuren") }
-            if (day.sunrise != null && day.sunset != null) add("zon ${Fmt.range(day.sunrise!!, day.sunset!!, s.zone)}")
+        val sunrise = day.sunrise
+        val sunset = day.sunset
+        if (sunrise != null && sunset != null) {
+            Text(
+                "Zon op ${Fmt.clock(sunrise, s.zone)} · onder ${Fmt.clock(sunset, s.zone)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-        if (facts.isNotEmpty()) Text(facts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         val cheapest = day.cheapest
         val dearest = day.dearest
         if (cheapest != null && dearest != null) {
             Text(
-                "Goedkoopst ${Fmt.clock(cheapest.start, s.zone)} (${Fmt.cents(cheapest.allInPrice ?: 0.0)}) · duurst ${Fmt.clock(dearest.start, s.zone)} (${Fmt.cents(dearest.allInPrice ?: 0.0)})",
+                "Goedkoopst ${Fmt.clock(cheapest.start, s.zone)} (${nb(Fmt.cents(cheapest.allInPrice ?: 0.0))}) · " +
+                    "duurst ${Fmt.clock(dearest.start, s.zone)} (${nb(Fmt.cents(dearest.allInPrice ?: 0.0))})",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            Text("Prijzen voor deze dag komen rond 13:00 de dag ervoor.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("De prijzen voor deze dag komen rond 13:00 de dag ervoor.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -607,16 +542,15 @@ private fun SunDayRow(s: Snapshot, day: DaySummary) {
 @Composable
 private fun Footer(s: Snapshot) {
     val lines = buildList {
-        s.forecast?.let { add("Prijzen: ${it.priceSource.label}, all-in met jouw opslag, energiebelasting en btw.") }
+        s.forecast?.let { add("Prijzen: ${it.priceSource.label}, inclusief energiebelasting, btw en ${Fmt.decimal(s.settings.tariffs.supplierMarkupPerKwh * 100, 0)} ct opslag.") }
         s.forecast?.priceNote?.let { add(it) }
         if (s.waitingForTomorrow && s.now.atZone(s.zone).hour < 15) add("De prijzen voor morgen komen meestal rond 13:00.")
-        add("Weer en zoninstraling: Open-Meteo. Zonopbrengst berekend voor ${Fmt.decimal(s.settings.pv.totalKwp, 1)} kWp.")
+        add("Weer en zon: Open-Meteo, voor ${s.settings.location.name}.")
     }
     Text(
         lines.joinToString("\n"),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Start,
         modifier = Modifier.padding(horizontal = 4.dp),
     )
 }

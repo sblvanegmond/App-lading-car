@@ -4,8 +4,8 @@ import kotlinx.serialization.Serializable
 import java.time.Instant
 
 /**
- * The raw ingredients of a plan, as they come from the two services. Times
- * are stored as epoch seconds so the lot can be cached as plain JSON.
+ * The raw ingredients, as they come from the services. Times are stored as
+ * epoch seconds so the lot can be cached as plain JSON.
  */
 
 /** Day-ahead market price for one hour, EUR/kWh excluding VAT. */
@@ -20,22 +20,19 @@ data class PricePoint(
 @Serializable
 data class WeatherHour(
     val startEpoch: Long,
-    /** Mean irradiance on each roof plane over this hour, W/m2, in settings order. */
-    val gti: List<Double>,
-    /** Mean irradiance on a flat surface over this hour, W/m2. */
-    val ghi: Double? = null,
-    val tempC: Double? = null,
-    val cloudCoverPct: Double? = null,
+    /** Mean sunlight on a flat surface over this hour, W/m2. */
+    val radiation: Double? = null,
+    /** Minutes of sunshine in this hour, 0 to 60. */
     val sunshineMinutes: Double? = null,
+    val cloudCoverPct: Double? = null,
+    val tempC: Double? = null,
     /** WMO weather interpretation code. */
     val weatherCode: Int? = null,
     val isDay: Boolean? = null,
 ) {
     val start: Instant get() = Instant.ofEpochSecond(startEpoch)
 
-    /** The brightest of what is known: the panels' own plane or the flat sky. */
-    val irradiance: Double
-        get() = maxOf(ghi ?: 0.0, gti.maxOrNull() ?: 0.0)
+    val irradiance: Double get() = radiation ?: 0.0
 }
 
 @Serializable
@@ -49,7 +46,7 @@ data class SunDay(
 
 @Serializable
 data class WeatherForecast(
-    /** [Settings.weatherKey] of the settings this forecast was made for. */
+    /** [Settings.weatherKey] of the place this forecast is for. */
     val key: String,
     val hours: List<WeatherHour>,
     val days: List<SunDay>,
@@ -66,7 +63,7 @@ data class Forecast(
     val priceSource: PriceSource,
     val priceNote: String? = null,
     val weather: WeatherForecast,
-    /** False when one of the two services failed and older data filled the gap. */
+    /** False when one of the services failed and older data filled the gap. */
     val complete: Boolean = true,
 ) {
     val fetchedAt: Instant get() = Instant.ofEpochSecond(fetchedAtEpoch)

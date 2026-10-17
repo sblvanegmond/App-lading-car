@@ -13,7 +13,7 @@ import kotlin.math.min
 /**
  * The widget's hour strip as a bitmap: a remote view cannot run Compose.
  * Per hour, from top to bottom: a sun dot, a price bar in the colour of its
- * price level (bright green when the plan charges then), and the hour.
+ * price level (bright green for the best hours), and the hour.
  */
 object WidgetChart {
     private const val HOURS = 24

@@ -9,8 +9,8 @@ import kotlin.math.min
 
 /**
  * The at-a-glance layer: per hour a verdict on the price and the sun, and
- * whether the plan charges in it. This is what the colours on screen and
- * in the widget are made of.
+ * whether it is one of the best hours. This is what the colours on screen
+ * and in the widget are made of.
  */
 enum class PriceLevel(val label: String) {
     CHEAP("goedkoop"),
@@ -30,20 +30,14 @@ data class HourInsight(
     val slot: HourSlot,
     val priceLevel: PriceLevel,
     val sunLevel: SunLevel,
-    /** Set when the plan charges in this hour. */
-    val charge: ChargeSlot?,
-    /** Cost per kWh of a full hour at full power, own sun counted at its real value. */
-    val chargePricePerKwh: Double?,
+    /** One of the hours to charge in. */
+    val isBest: Boolean,
     val isNow: Boolean,
-) {
-    val isBest: Boolean get() = charge != null
-}
+)
 
 data class DaySummary(
     val date: LocalDate,
     val sunshineHours: Double?,
-    /** Expected production of the panels over the whole day, kWh. */
-    val solarKwh: Double,
     val sunrise: Instant?,
     val sunset: Instant?,
     val cheapest: HourSlot?,
@@ -54,34 +48,33 @@ data class DaySummary(
 object Insights {
 
     /** From the current hour onwards. */
-    fun upcoming(timeline: List<HourSlot>, plan: Plan?, settings: Settings, now: Instant): List<HourInsight> {
+    fun upcoming(timeline: List<HourSlot>, best: List<HourSlot>, now: Instant): List<HourInsight> {
         val upcoming = timeline.filter { it.end.isAfter(now) }
         val prices = upcoming.mapNotNull { it.allInPrice }.sorted()
         val low = quantile(prices, 0.25)
         val high = quantile(prices, 0.75)
         // A flat day is not "half cheap, half expensive"; colour it neutral.
         val flat = prices.isEmpty() || prices.last() - prices.first() < 0.01
+        val bestStarts = best.map { it.start }.toSet()
         return upcoming.map { slot ->
             val price = slot.allInPrice
-            val level = when {
-                price == null -> PriceLevel.UNKNOWN
-                flat -> PriceLevel.NORMAL
-                price <= low -> PriceLevel.CHEAP
-                price >= high -> PriceLevel.EXPENSIVE
-                else -> PriceLevel.NORMAL
-            }
             HourInsight(
                 slot = slot,
-                priceLevel = level,
+                priceLevel = when {
+                    price == null -> PriceLevel.UNKNOWN
+                    flat -> PriceLevel.NORMAL
+                    price <= low -> PriceLevel.CHEAP
+                    price >= high -> PriceLevel.EXPENSIVE
+                    else -> PriceLevel.NORMAL
+                },
                 sunLevel = sunLevel(slot.weather?.irradiance ?: 0.0),
-                charge = plan?.chargeFor(slot),
-                chargePricePerKwh = chargePrice(slot, settings),
+                isBest = slot.start in bestStarts,
                 isNow = !slot.start.isAfter(now) && slot.end.isAfter(now),
             )
         }
     }
 
-    /** Irradiance in W/m2 to words. */
+    /** Sunlight in W/m2 to words. */
     fun sunLevel(irradiance: Double): SunLevel = when {
         irradiance < 25 -> SunLevel.NONE
         irradiance < 150 -> SunLevel.LITTLE
@@ -89,37 +82,14 @@ object Insights {
         else -> SunLevel.LOTS
     }
 
-    fun chargePrice(slot: HourSlot, settings: Settings): Double? {
-        val allIn = slot.allInPrice ?: return null
-        val charger = settings.car.chargerKw
-        if (charger <= 0) return allIn
-        val solar = min(slot.surplusKw, charger)
-        val solarValue = Pricing.solarOpportunityCost(allIn, settings.tariffs)
-        return ((charger - solar) * allIn + solar * solarValue) / charger
-    }
-
-    /** Why the best window is the best, in a few words each. */
-    fun reasons(block: ChargeBlock, insights: List<HourInsight>): List<String> {
-        val hours = insights.filter { i -> block.slots.any { it.slot.start == i.slot.start } }
-        val out = mutableListOf<String>()
-        val sun = hours.maxOfOrNull { it.sunLevel.ordinal } ?: 0
-        if (sun >= SunLevel.SOME.ordinal && block.solarKwh > 0.05) out += "☀️ zon op je panelen"
-        else if (sun >= SunLevel.SOME.ordinal) out += "☀️ zonnig"
-        if (hours.isNotEmpty() && hours.all { it.priceLevel == PriceLevel.CHEAP }) out += "💶 goedkoopste uren"
-        else if (hours.any { it.priceLevel == PriceLevel.CHEAP }) out += "💶 goedkoop"
-        return out
-    }
-
     fun days(timeline: List<HourSlot>, weather: WeatherForecast?, zone: ZoneId): List<DaySummary> {
         val byDay = timeline.groupBy { it.start.atZone(zone).toLocalDate() }
         return byDay.keys.sorted().map { date ->
-            val slots = byDay.getValue(date)
+            val priced = byDay.getValue(date).filter { it.hasPrice }
             val sun = weather?.days?.firstOrNull { it.date == date.toString() }
-            val priced = slots.filter { it.hasPrice }
             DaySummary(
                 date = date,
                 sunshineHours = sun?.sunshineHours,
-                solarKwh = slots.sumOf { it.pvKw },
                 sunrise = sun?.sunriseEpoch?.let(Instant::ofEpochSecond),
                 sunset = sun?.sunsetEpoch?.let(Instant::ofEpochSecond),
                 cheapest = priced.minByOrNull { it.allInPrice!! },
@@ -135,15 +105,14 @@ object Insights {
         val pos = (sorted.size - 1) * q.coerceIn(0.0, 1.0)
         val lower = floor(pos).toInt()
         val upper = min(sorted.lastIndex, lower + 1)
-        val fraction = pos - lower
-        return sorted[lower] + (sorted[upper] - sorted[lower]) * max(0.0, fraction)
+        return sorted[lower] + (sorted[upper] - sorted[lower]) * max(0.0, pos - lower)
     }
 }
 
 /**
  * A weather code from Open-Meteo (WMO) as one symbol. A clear hour in which
- * the sun is too low to give any power shows the sun on the horizon, so a
- * sunny symbol never promises energy that is not there.
+ * the sun is too low to matter shows the sun on the horizon, so a sunny
+ * symbol never promises sun that is not there.
  */
 fun weatherSymbol(code: Int?, isDay: Boolean, irradiance: Double? = null): String = when {
     isDay && irradiance != null && irradiance < 15 && (code ?: 1) in 0..2 -> "🌅"

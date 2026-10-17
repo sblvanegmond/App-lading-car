@@ -33,8 +33,8 @@ fun main() {
 
     val weather = try {
         loader.loadWeather(settings).also { w ->
-            val sunny = w.hours.count { it.irradiance > 150 }
-            println("Open-Meteo: ${w.hours.size} uren, $sunny met zon, ${w.days.size} dagen")
+            val sunny = w.hours.count { (it.sunshineMinutes ?: 0.0) > 30 }
+            println("Open-Meteo: ${w.hours.size} uren, $sunny zonnig, ${w.days.size} dagen")
         }
     } catch (e: Exception) {
         failures++
@@ -43,20 +43,19 @@ fun main() {
     }
 
     val prices = runCatching { loader.loadPrices(settings, now, zone) }.getOrNull()
-    if (prices != null) {
-        val until = now.atZone(zone).toLocalDate().plusDays(2).atStartOfDay(zone).toInstant()
-        val timeline = buildTimeline(prices.points, weather, settings, until)
-        val plan = Planner.plan(timeline, settings, now, zone)
+    if (prices != null && weather != null) {
+        val snapshot = Snapshot.of(settings, Forecast(now.epochSecond, prices.points, prices.source, prices.note, weather), now, zone)
         println()
-        println(Briefing.title(plan, now, zone))
-        println(Briefing.body(plan))
-        Insights.upcoming(timeline, plan, settings, now).forEach { h ->
+        println(Briefing.title(snapshot))
+        println(Briefing.body(snapshot))
+        snapshot.insights.forEach { h ->
             val w = h.slot.weather
+            val sun = w?.sunshineMinutes?.takeIf { it >= 5 }?.let { "${it.toInt()} min zon" } ?: ""
             println(
                 "  ${Fmt.dayWord(h.slot.start, now, zone).padEnd(8)} ${Fmt.clock(h.slot.start, zone)}  " +
-                    "${weatherSymbol(w?.weatherCode, w?.isDay ?: true, w?.irradiance)} ${Fmt.kw(h.slot.pvKw).padStart(7)}  " +
+                    "${weatherSymbol(w?.weatherCode, w?.isDay ?: true, w?.irradiance)} ${sun.padEnd(11)}" +
                     "${(h.slot.allInPrice?.let(Fmt::cents) ?: "?").padStart(8)}  ${h.priceLevel.label.padEnd(15)}" +
-                    if (h.isBest) "  <- laden" else "",
+                    if (h.isBest) "  <- beste uur" else "",
             )
         }
     }

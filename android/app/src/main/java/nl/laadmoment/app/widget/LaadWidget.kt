@@ -14,7 +14,6 @@ import nl.laadmoment.app.laadmoment
 import nl.laadmoment.app.work.Scheduler
 import nl.laadmoment.core.Briefing
 import nl.laadmoment.core.Fmt
-import nl.laadmoment.core.Insights
 import nl.laadmoment.core.Snapshot
 
 /**
@@ -86,14 +85,16 @@ class LaadWidget : AppWidgetProvider() {
             context.getSystemService(AppWidgetManager::class.java)?.isRequestPinAppWidgetSupported == true
 
         private fun texts(snapshot: Snapshot): Pair<String, String> {
-            val plan = snapshot.plan ?: return "Laadmoment" to "Tik om prijzen en weer op te halen"
-            val block = plan.blocks.firstOrNull()
-                ?: return "Laadmoment" to Briefing.body(plan)
-            val title = "⚡ ${Briefing.window(block, snapshot.now, snapshot.zone)}"
-            val parts = Insights.reasons(block, snapshot.insights).toMutableList()
-            parts += "${Fmt.cents(block.avgPricePerKwh)}/kWh"
-            if (plan.blocks.size > 1) parts += "+${plan.blocks.size - 1} blok"
-            return title to parts.joinToString(" · ")
+            val first = snapshot.windows.firstOrNull()
+                ?: return "Laadmoment" to "Tik om prijzen en weer op te halen"
+            val sun = if (first.sunny) " ☀️" else ""
+            val title = "⚡ ${Briefing.window(first, snapshot.now, snapshot.zone)}$sun"
+            val rest = snapshot.windows.drop(1).take(2).map { w ->
+                val day = Fmt.dayWord(w.from, snapshot.now, snapshot.zone)
+                "${if (day == "vandaag") "" else "$day "}${Fmt.range(w.from, w.to, snapshot.zone)}"
+            }
+            val subtitle = (listOf("gem. ${Fmt.cents(first.avgPrice)}") + rest.map { "ook $it" }).joinToString(" · ")
+            return title to subtitle
         }
     }
 }

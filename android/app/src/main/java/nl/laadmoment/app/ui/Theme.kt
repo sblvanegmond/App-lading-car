@@ -4,8 +4,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SelectableChipColors
-import androidx.compose.material3.SliderColors
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -141,13 +139,4 @@ fun LaadmomentTheme(content: @Composable () -> Unit) {
 fun chipColors(): SelectableChipColors = FilterChipDefaults.filterChipColors(
     selectedContainerColor = LocalSignals.current.bestBand,
     selectedLabelColor = MaterialTheme.colorScheme.onSurface,
-)
-
-@Composable
-fun sliderColors(): SliderColors = SliderDefaults.colors(
-    thumbColor = LocalSignals.current.best,
-    activeTrackColor = LocalSignals.current.best,
-    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-    activeTickColor = Color.Transparent,
-    inactiveTickColor = Color.Transparent,
 )

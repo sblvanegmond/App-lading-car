@@ -18,16 +18,15 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.Locale
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 /**
  * The three free services the app talks to. None of them needs an account
- * or a key; the only thing that leaves the phone is the location of the
- * roof and the date range.
+ * or a key; the only thing that leaves the phone is the location and the
+ * date range.
  *
  *  - EnergyZero: Dutch day-ahead prices (primary).
  *  - Energy-Charts (Fraunhofer ISE): the same EPEX prices, as a backup.
- *  - Open-Meteo: irradiance on the roof planes, temperature, clouds.
+ *  - Open-Meteo: sunshine, sunlight, clouds, sunrise and sunset.
  */
 fun interface HttpGet {
     fun get(url: String): String
@@ -127,61 +126,46 @@ object EnergyCharts {
 }
 
 object OpenMeteo {
-    fun url(location: Location, plane: RoofPlane): String =
+    fun url(location: Location): String =
         "https://api.open-meteo.com/v1/forecast" +
             "?latitude=${"%.4f".format(Locale.ROOT, location.latitude)}" +
             "&longitude=${"%.4f".format(Locale.ROOT, location.longitude)}" +
-            "&hourly=global_tilted_irradiance,shortwave_radiation,temperature_2m,cloud_cover," +
-            "sunshine_duration,weather_code,is_day" +
+            "&hourly=shortwave_radiation,sunshine_duration,cloud_cover,temperature_2m,weather_code,is_day" +
             "&daily=sunrise,sunset,sunshine_duration" +
-            "&tilt=${plane.tilt.coerceIn(0.0, 90.0).roundToInt()}" +
-            "&azimuth=${plane.azimuth.coerceIn(-180.0, 180.0).roundToInt()}" +
             "&forecast_days=3&timezone=auto&timeformat=unixtime"
 
     /**
-     * One response per roof plane, all for the same place. Radiation and
-     * sunshine are reported as the mean (or sum) over the hour *before* the
-     * time stamp, so the hour 12:00-13:00 takes the value stamped 13:00.
-     * Temperature, clouds and the weather code are instantaneous.
+     * Radiation and sunshine are reported as the mean (or sum) over the hour
+     * *before* the time stamp, so the hour 12:00-13:00 takes the value
+     * stamped 13:00. Clouds, temperature and the weather code are
+     * instantaneous.
      */
-    fun parse(bodies: List<String>, planes: List<RoofPlane>, key: String): WeatherForecast {
-        require(bodies.isNotEmpty()) { "geen weerdata" }
-        val roots = bodies.map { json.parseToJsonElement(it).asObject() ?: throw DataException("Weerdata", "onleesbaar antwoord") }
-        val base = roots.first()
-        val hourly = base["hourly"].asObject() ?: throw DataException("Weerdata", "geen uurwaarden ontvangen")
+    fun parse(body: String, key: String): WeatherForecast {
+        val root = json.parseToJsonElement(body).asObject() ?: throw DataException("Weerdata", "onleesbaar antwoord")
+        val hourly = root["hourly"].asObject() ?: throw DataException("Weerdata", "geen uurwaarden ontvangen")
         val times = hourly["time"].asArray()?.mapNotNull { it.asLong() }.orEmpty()
         if (times.isEmpty()) throw DataException("Weerdata", "geen uurwaarden ontvangen")
         val indexOf = times.withIndex().associate { (i, t) -> t to i }
-        val offset = base["utc_offset_seconds"].asLong() ?: 0L
+        val offset = root["utc_offset_seconds"].asLong() ?: 0L
 
-        fun series(root: JsonObject, name: String): JsonArray? = root["hourly"].asObject()?.get(name).asArray()
+        fun series(name: String): JsonArray? = hourly[name].asArray()
 
-        fun precedingHour(root: JsonObject, name: String, start: Long, ownIndex: Int): Double? {
-            val values = series(root, name) ?: return null
-            val next = indexOf[start + 3600]
-            return values.getOrNull(next ?: ownIndex).asDouble()
-        }
+        fun precedingHour(name: String, start: Long, ownIndex: Int): Double? =
+            series(name)?.getOrNull(indexOf[start + 3600] ?: ownIndex).asDouble()
 
         val hours = times.mapIndexed { i, start ->
-            val ghi = precedingHour(base, "shortwave_radiation", start, i)
-            val gti = roots.mapIndexed { p, root ->
-                val value = precedingHour(root, "global_tilted_irradiance", start, i)
-                val tilt = planes.getOrNull(p)?.tilt ?: 35.0
-                (value ?: Solar.estimateGtiFromGhi(ghi ?: 0.0, tilt)).coerceAtLeast(0.0)
-            }
             WeatherHour(
                 startEpoch = start,
-                gti = gti,
-                ghi = ghi?.coerceAtLeast(0.0),
-                tempC = series(base, "temperature_2m")?.getOrNull(i).asDouble(),
-                cloudCoverPct = series(base, "cloud_cover")?.getOrNull(i).asDouble(),
-                sunshineMinutes = precedingHour(base, "sunshine_duration", start, i)?.div(60),
-                weatherCode = series(base, "weather_code")?.getOrNull(i).asDouble()?.toInt(),
-                isDay = series(base, "is_day")?.getOrNull(i).asDouble()?.let { it >= 0.5 },
+                radiation = precedingHour("shortwave_radiation", start, i)?.coerceAtLeast(0.0),
+                sunshineMinutes = precedingHour("sunshine_duration", start, i)?.div(60)?.coerceIn(0.0, 60.0),
+                cloudCoverPct = series("cloud_cover")?.getOrNull(i).asDouble(),
+                tempC = series("temperature_2m")?.getOrNull(i).asDouble(),
+                weatherCode = series("weather_code")?.getOrNull(i).asDouble()?.toInt(),
+                isDay = series("is_day")?.getOrNull(i).asDouble()?.let { it >= 0.5 },
             )
         }
 
-        val daily = base["daily"].asObject()
+        val daily = root["daily"].asObject()
         val dayTimes = daily?.get("time").asArray().orEmpty()
         val days = dayTimes.mapIndexedNotNull { i, element ->
             val midnight = element.asLong() ?: return@mapIndexedNotNull null
@@ -249,16 +233,12 @@ class DataLoader(private val http: HttpGet = UrlConnectionHttp) {
         return result ?: throw DataException("Stroomprijzen", problems.joinToString("; "))
     }
 
-    fun loadWeather(settings: Settings): WeatherForecast {
-        val planes = settings.pv.arrays.ifEmpty { listOf(RoofPlane(kWp = 0.0)) }
-        return try {
-            val bodies = planes.map { http.get(OpenMeteo.url(settings.location, it)) }
-            OpenMeteo.parse(bodies, planes, settings.weatherKey())
-        } catch (e: DataException) {
-            throw e
-        } catch (e: Exception) {
-            throw DataException("Weerdata", e.message ?: e.javaClass.simpleName, e)
-        }
+    fun loadWeather(settings: Settings): WeatherForecast = try {
+        OpenMeteo.parse(http.get(OpenMeteo.url(settings.location)), settings.weatherKey())
+    } catch (e: DataException) {
+        throw e
+    } catch (e: Exception) {
+        throw DataException("Weerdata", e.message ?: e.javaClass.simpleName, e)
     }
 
     companion object {

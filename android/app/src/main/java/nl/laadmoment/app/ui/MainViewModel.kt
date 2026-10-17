@@ -91,7 +91,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (after.notifications != before.notifications) {
             Scheduler.scheduleMorning(getApplication(), after, replace = true)
         }
-        // Sliders fire many times a second; the widget only needs the end result.
+        // Taps can come quickly one after another; the widget only needs the end result.
         widgetJob?.cancel()
         widgetJob = viewModelScope.launch {
             delay(1_500)
@@ -102,6 +102,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun afterChange(data: Forecast?) {
         val snapshot = withContext(Dispatchers.Default) { Snapshot.of(app.settings.current, data) }
         LaadWidget.updateAll(getApplication(), snapshot)
-        Scheduler.scheduleReminder(getApplication(), app.settings.current, snapshot.plan)
+        Scheduler.scheduleReminder(getApplication(), app.settings.current, snapshot.windows)
     }
 }

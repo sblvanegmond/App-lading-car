@@ -1,25 +1,15 @@
 # Laadmoment
 
-Een app voor op je telefoon die je elke ochtend laat zien wanneer je je auto
-het beste kunt laden. De app weegt drie dingen tegen elkaar af:
+Een app voor op je telefoon die laat zien wanneer je je auto het beste kunt
+laden. Er zijn twee versies:
 
-1. **De dynamische stroomprijs in Nederland** — de day-ahead uurprijzen, met
-   jouw eigen opslag, energiebelasting en btw erbovenop.
-2. **De zon boven Grootegast** — de verwachte straling per uur op precies jouw
-   dakvlakken, plus de zonuren van de dag.
-3. **De capaciteit van je zonnepanelen** — vermogen in kWp, hellingshoek,
-   richting, omvormerbegrenzing en systeemrendement.
-
-Het resultaat is een concreet laadvenster: *"14:00 – 16:00, 22 kWh, € 2,72,
-19% uit eigen zon"*, met de kosten afgezet tegen meteen laden.
-
-Er zijn twee versies die hetzelfde rekenen:
-
-- een **Android-app** die je als APK installeert, met een widget voor je
-  beginscherm en meldingen zonder verdere opzet (hieronder);
-- een **progressive web app**: statische bestanden, geen account, geen
-  API-sleutel, geen server die je moet betalen. Die werkt ook op een iPhone
-  (vanaf *Stap 1*).
+- de **Android-app** (hieronder): de stroomprijs en de zon per uur, met je
+  beste uren gemarkeerd. Geen gegevens over je auto of je panelen nodig. Je
+  installeert hem als APK, met een widget en meldingen erbij.
+- de **web-app** (vanaf *Stap 1*): rekent een volledig laadplan uit met je
+  accu, je laadvermogen en de opbrengst van je zonnepanelen, bijvoorbeeld
+  *"14:00 – 16:00, 22 kWh, € 2,72, 19% uit eigen zon"*. Werkt ook op een
+  iPhone.
 
 ---
 
@@ -52,44 +42,40 @@ Elke push naar `android/` bouwt een nieuwe release (workflow *Android-app*).
 
 ### Wat je ziet
 
-- **Bovenaan het beste moment**: *"Vandaag 12:00 – 15:00"*, met waarom
-  (☀️ zon op je panelen, 💶 goedkoopste uren), hoeveel kWh, wat het kost en
-  hoeveel je bespaart ten opzichte van meteen laden.
-- **Wat nu**: één zin over het huidige uur, bijvoorbeeld *"Nu duur (31,2 ct).
-  Wacht liever tot vandaag 12:00."*
+- **Bovenaan je beste uren**, bijvoorbeeld *"Vandaag 13:00 – 16:00, gem. 27 ct,
+  ☀️ zon"* en *"Morgen 03:00 – 05:00"*. Daaronder één zin over nu: *"Nu duur
+  (36 ct). Het volgende beste uur is vandaag 13:00."*
+- **Hoeveel uren**: met − en + kies je hoeveel beste uren de app markeert,
+  standaard 5. Daaronder kies je *Laagste prijs* (de goedkoopste uren) of
+  *Prijs én zon* (een uur met volle zon telt als half zo duur).
 - **Komende uren**: een balk die je opzij schuift. Per uur het weer, de prijs
   in ct/kWh als gekleurde staaf (groen goedkoop, grijs gemiddeld, rood duur),
-  de zonopbrengst in geel eronder, en ⚡ met een groene band op de uren
-  waarin je moet laden. De zon van morgen staat er al in voordat de prijzen
-  van morgen bekend zijn.
-- **Hoeveel moet erbij**: schuif je accu van nu naar je doel en de groene uren
-  passen zich meteen aan. Kies *Geen haast* of een tijd waarop de auto klaar
-  moet zijn, en *Goedkoopst*, *Balans* of *Max zon*.
-- **Per uur**: de all-in prijs en, als de zon meehelpt, wat laden dan echt
-  kost (*"met zon 18,2 ct"*).
+  de zon in geel eronder, en ⚡ met een groene band op je beste uren. De zon
+  van morgen staat er al in voordat de prijzen van morgen bekend zijn.
+- **Per uur**: het weer, hoeveel minuten zon, de prijs, en *⚡ beste* bij je
+  beste uren.
+- **Per dag**: de zonuren, zonsopkomst en -ondergang, en het goedkoopste en
+  duurste uur.
+
+De prijzen zijn inclusief energiebelasting (2026: € 0,0916 per kWh), btw en
+2 ct opslag. Dat schuift alle uren evenveel op; welke uren het beste zijn,
+verandert er niet door.
 
 ### Widget en meldingen
 
 - **Widget**: in *Instellingen* staat bovenaan een voorbeeld met de knop *Zet
   op beginscherm*. Of houd je beginscherm ingedrukt → *Widgets* →
-  *Laadmoment*. Je ziet het beste moment en de komende 24 uur als gekleurde
+  *Laadmoment*. Je ziet je beste uren en de komende 24 uur als gekleurde
   staafjes met de zon erboven. Hij ververst elk uur.
-- **Ochtendoverzicht** en **seintje een kwartier voor het beste moment**: zet
+- **Ochtendoverzicht** en **seintje een kwartier voor je beste uren**: zet
   ze aan onder *Instellingen → Meldingen*. Geen sleutels, geen GitHub-secrets:
   de telefoon doet het zelf.
-
-### Instellingen
-
-Dezelfde gegevens als in de tabel bij *Stap 3* hieronder: auto, dakvlakken
-(één of twee, met richting), omvormer, basisverbruik, tarieven, saldering en
-locatie (standaard Grootegast). De energiebelasting staat op het tarief van
-2026, € 0,0916 per kWh exclusief btw.
 
 ### Hoe het gebouwd is
 
 | Map | Wat |
 |---|---|
-| `android/core` | De rekenkern in gewone Kotlin: prijzen en weer ophalen, pv-model, planner, de teksten. Getest met `./gradlew :core:test`. |
+| `android/core` | De rekenkern in gewone Kotlin: prijzen en weer ophalen, de beste uren kiezen, de teksten. Getest met `./gradlew :core:test`. |
 | `android/app` | De Android-app (Jetpack Compose), de widget en de achtergrondtaken. |
 | `android/tools/smoke.sh` | Installeert de APK op een emulator, maakt schermafbeeldingen en faalt als de app crasht. |
 | `.github/workflows/android.yml` | Tests, een controle tegen de echte prijs- en weerdiensten, de APK, de emulatortest en de release. |

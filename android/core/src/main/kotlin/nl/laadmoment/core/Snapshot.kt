@@ -13,8 +13,11 @@ data class Snapshot(
     val forecast: Forecast?,
     val now: Instant,
     val zone: ZoneId,
+    /** Today and tomorrow, hour by hour; tomorrow's hours may still lack a price. */
     val timeline: List<HourSlot>,
-    val plan: Plan?,
+    /** The best hours still to come, in time order. */
+    val best: List<HourSlot>,
+    val windows: List<Window>,
     val insights: List<HourInsight>,
     val days: List<DaySummary>,
 ) {
@@ -33,15 +36,16 @@ data class Snapshot(
             val weather = forecast?.weather?.takeIf { it.key == settings.weatherKey() }
             val timeline = buildTimeline(forecast?.prices.orEmpty(), weather, settings, until)
                 .filter { !it.start.isBefore(startOfToday) }
-            val plan = if (timeline.any { it.hasPrice }) Planner.plan(timeline, settings, now, zone) else null
+            val best = BestHours.pick(timeline, settings, now)
             return Snapshot(
                 settings = settings,
                 forecast = forecast,
                 now = now,
                 zone = zone,
                 timeline = timeline,
-                plan = plan,
-                insights = Insights.upcoming(timeline, plan, settings, now),
+                best = best,
+                windows = BestHours.windows(best),
+                insights = Insights.upcoming(timeline, best, now),
                 days = Insights.days(timeline, weather, zone),
             )
         }
