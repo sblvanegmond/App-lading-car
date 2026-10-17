@@ -37,8 +37,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      // Only our own caches: the coach app shares this origin.
-      .then((keys) => Promise.all(keys.filter((key) => key.startsWith('laadmoment-') && key !== CACHE).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
       .then(() => self.clients.claim()),
   );
 });
@@ -51,8 +50,6 @@ self.addEventListener('fetch', (event) => {
   // Prices and weather must never come from the cache: the whole point is
   // fresh numbers. The app itself keeps a timestamped copy in localStorage.
   if (url.origin !== self.location.origin) return;
-  // The coach app in coach/ has its own service worker.
-  if (url.pathname.startsWith(new URL('coach/', self.registration.scope).pathname)) return;
 
   event.respondWith(
     caches.match(request).then((cached) => {
