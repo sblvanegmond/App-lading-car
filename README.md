@@ -27,13 +27,25 @@ Er zijn twee versies die hetzelfde rekenen:
 
 ### Installeren
 
-1. Open op je Android-telefoon in Chrome:
+1. Open de **Chrome-app** op je Android-telefoon en plak deze link in de
+   adresbalk:
    **https://github.com/sblvanegmond/App-lading-car/releases/latest/download/Laadmoment.apk**
-2. Chrome downloadt `Laadmoment.apk`. Tik op de melding *Openen*.
-3. De eerste keer vraagt Android of Chrome apps mag installeren. Zet dat aan
+
+   Tik de link liever niet aan vanuit een andere app (een chat, je mail).
+   Die openen hem in een ingebouwd browservenster, en daar blijft de
+   download soms op *Downloaden* staan.
+2. Chrome vraagt of je dit bestand toch wilt downloaden, omdat een APK een
+   app is. Tik op *Toch downloaden*. Zolang je dat niet bevestigt, blijft de
+   download op *Downloaden* hangen, ook als alles al binnen is.
+3. Tik op *Openen*, of open `Laadmoment.apk` via Chrome → ⋮ → *Downloads*.
+4. De eerste keer vraagt Android of Chrome apps mag installeren. Zet dat aan
    en ga terug.
-4. Play Protect kan waarschuwen dat de app onbekend is. Tik op *Details* →
+5. Play Protect kan waarschuwen dat de app onbekend is. Tik op *Details* →
    *Toch installeren*. De app komt niet uit de Play Store, daarom die vraag.
+
+Blijft de download hangen? Kijk dan in Chrome bij ⋮ → *Downloads* of er bij
+`Laadmoment.apk` een knop staat om het bestand te behouden. Of probeer een
+andere browser, zoals Samsung Internet of Firefox.
 
 Een nieuwere versie installeer je precies zo; je instellingen blijven staan.
 Elke push naar `android/` bouwt een nieuwe release (workflow *Android-app*).
