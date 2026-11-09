@@ -58,8 +58,10 @@ jobs:
           if-no-files-found: ignore
 
       # Eén vaste release met de tag "adempauze", die bij elke build wordt
-      # vervangen. Hij wordt nooit "latest": die plek is van Laadmoment, waarvan
-      # de downloadlink releases/latest/download/Laadmoment.apk gebruikt.
+      # vervangen. Hij mag nooit "latest" worden: die plek is van Laadmoment,
+      # waarvan de downloadlink releases/latest/download/Laadmoment.apk is.
+      # Alleen --latest=false is niet genoeg (GitHub valt dan terug op de
+      # nieuwste release); een pre-release telt nooit mee voor "latest".
       - name: Release bijwerken
         env:
           GH_TOKEN: ${{ github.token }}
@@ -84,4 +86,5 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "Adempauze 1.0.${{ github.run_number }}" \
             --notes-file notes.md \
+            --prerelease \
             --latest=false

@@ -156,9 +156,9 @@ cd adempauze
 ```
 
 De workflow `.github/workflows/adempauze.yml` doet hetzelfde bij elke push en
-vervangt de release met de tag `adempauze`. Die release wordt bewust nooit
-"latest", zodat de downloadlink van Laadmoment (`releases/latest/…`) blijft
-werken.
+vervangt de release met de tag `adempauze`. Die staat bewust als
+*pre-release*, zodat hij nooit "latest" wordt en de downloadlink van Laadmoment
+(`releases/latest/…`) blijft werken.
 
 ### Ondertekening
 
