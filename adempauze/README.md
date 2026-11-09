@@ -73,9 +73,9 @@ Adempauze staat niet in de Play Store. Je installeert de APK zelf; dat duurt
 een paar minuten en hoeft maar één keer.
 
 1. **Download de app.** Open op je telefoon
-   `https://github.com/sblvanegmond/App-lading-car/releases/latest` en tik op
-   **adempauze.apk**. (Ben je niet ingelogd op GitHub en is de repository
-   privé, log dan eerst in.)
+   **https://github.com/sblvanegmond/App-lading-car/releases/download/adempauze/adempauze.apk**
+   (of de releasepagina
+   `https://github.com/sblvanegmond/App-lading-car/releases/tag/adempauze`).
 2. **Installeren toestaan.** Tik op de download. Vraagt je telefoon of de
    browser apps mag installeren, zet dat dan aan.
    - Zegt Samsung dat de installatie is **geblokkeerd door Automatische
@@ -156,7 +156,9 @@ cd adempauze
 ```
 
 De workflow `.github/workflows/adempauze.yml` doet hetzelfde bij elke push en
-zet de APK onder **Releases**.
+vervangt de release met de tag `adempauze`. Die release wordt bewust nooit
+"latest", zodat de downloadlink van Laadmoment (`releases/latest/…`) blijft
+werken.
 
 ### Ondertekening
 
@@ -164,7 +166,7 @@ De APK wordt ondertekend met `signing/adempauze-sideload.jks` uit deze
 repository. Dat is bewust: zo heeft elke versie dezelfde handtekening en
 installeert een update altijd over de vorige heen. Die sleutel is dus geen
 geheim; hij bewijst alleen dat een update van "dezelfde" Adempauze komt.
-Installeer daarom alleen APK's van je eigen Releases-pagina. Wil je een eigen,
+Installeer daarom alleen APK's van je eigen releasepagina. Wil je een eigen,
 geheime sleutel gebruiken, zet dan `ADEMPAUZE_KEYSTORE`,
 `ADEMPAUZE_KEYSTORE_PASSWORD`, `ADEMPAUZE_KEY_ALIAS` en `ADEMPAUZE_KEY_PASSWORD`
 (lokaal of als secrets in de workflow). Let op: na een sleutelwissel moet je de

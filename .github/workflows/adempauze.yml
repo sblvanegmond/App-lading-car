@@ -1,9 +1,8 @@
 name: Adempauze (Android)
 
 # Bouwt de Android-app bij elke push die iets in adempauze/ verandert, draait
-# de tests en zet de APK als download onder Releases. Op je telefoon open je
-# dan https://github.com/<jij>/App-lading-car/releases/latest en tik je op
-# adempauze.apk.
+# de tests en zet de APK als download onder Releases:
+#   https://github.com/<jij>/App-lading-car/releases/download/adempauze/adempauze.apk
 on:
   push:
     paths:
@@ -58,18 +57,31 @@ jobs:
           path: adempauze/app/build/screenshots
           if-no-files-found: ignore
 
-      - name: Release maken
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: adempauze-v1.0.${{ github.run_number }}
-          name: Adempauze 1.0.${{ github.run_number }}
-          target_commitish: ${{ github.sha }}
-          make_latest: true
-          files: adempauze/adempauze.apk
-          body: |
-            Open deze pagina op je telefoon en tik hieronder op **adempauze.apk**.
+      # Eén vaste release met de tag "adempauze", die bij elke build wordt
+      # vervangen. Hij wordt nooit "latest": die plek is van Laadmoment, waarvan
+      # de downloadlink releases/latest/download/Laadmoment.apk gebruikt.
+      - name: Release bijwerken
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cat > notes.md <<NOTES
+          **Downloaden op je telefoon:** open deze pagina op je Samsung en tik hieronder bij *Assets* op **adempauze.apk**.
 
-            Eerste keer? Volg de stappen in [adempauze/README.md](https://github.com/${{ github.repository }}/blob/${{ github.sha }}/adempauze/README.md#installeren-op-je-samsung).
-            Heb je Adempauze al? Dan installeert deze versie gewoon over de vorige heen; je instellingen blijven bewaard.
+          Directe link: https://github.com/${GH_REPO}/releases/download/adempauze/adempauze.apk
 
-            Gebouwd van `${{ github.ref_name }}` (${{ github.sha }}).
+          Eerste keer? Volg de stappen in [adempauze/README.md](https://github.com/${GH_REPO}/blob/${GITHUB_SHA}/adempauze/README.md#installeren-op-je-samsung).
+          Heb je Adempauze al? Dan installeert deze versie over de vorige heen; je instellingen blijven bewaard.
+
+          Gebouwd van \`${GITHUB_SHA::7}\` op branch \`${GITHUB_REF_NAME}\`.
+          NOTES
+          # Oude, genummerde releases (adempauze-v…) opruimen.
+          for tag in $(gh release list --limit 100 --json tagName --jq '.[].tagName' | grep '^adempauze-v' || true); do
+            gh release delete "$tag" --yes --cleanup-tag
+          done
+          gh release delete adempauze --yes --cleanup-tag || true
+          gh release create adempauze adempauze.apk \
+            --target "$GITHUB_SHA" \
+            --title "Adempauze 1.0.${{ github.run_number }}" \
+            --notes-file notes.md \
+            --latest=false
