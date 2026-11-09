@@ -17,6 +17,10 @@ Het is een **progressive web app**: statische bestanden, geen account, geen
 API-sleutel, geen server die je moet betalen. Je zet hem op je beginscherm en
 hij gedraagt zich als een gewone app, ook zonder internet.
 
+> **Ook in deze repository: [Adempauze](adempauze/README.md)**, een Android-app
+> die je een korte ademhaling en een vraag laat zien voordat je YouTube, je
+> werkmail of een andere gekozen app opent.
+
 ---
 
 ## Stap 1 — De app online zetten

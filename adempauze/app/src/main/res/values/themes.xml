@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Adempauze" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- Donker en zonder opstartanimatie: het pauzescherm moet rustig binnenkomen. -->
+    <style name="Theme.Adempauze.Pause" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/pause_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@style/PauseAnimation</item>
+    </style>
+
+    <style name="PauseAnimation">
+        <item name="android:activityOpenEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:activityOpenExitAnimation">@android:anim/fade_out</item>
+        <item name="android:activityCloseEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:activityCloseExitAnimation">@android:anim/fade_out</item>
+        <item name="android:taskOpenEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:taskOpenExitAnimation">@android:anim/fade_out</item>
+        <item name="android:taskCloseEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:taskCloseExitAnimation">@android:anim/fade_out</item>
+    </style>
+</resources>
