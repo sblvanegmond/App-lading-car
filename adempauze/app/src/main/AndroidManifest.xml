@@ -1,6 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+        Adempauze gebruikt bewust GEEN toegankelijkheidsdienst. Play Protect
+        blokkeert zelf geïnstalleerde apps die daarom vragen. In plaats daarvan:
+        - gebruiksgegevens: om te zien welke app vooraan komt;
+        - weergeven boven andere apps: om het pauzescherm te mogen openen;
+        - een voorgronddienst die dat bijhoudt zolang je scherm aan is.
+    -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Alleen om de dialoog "batterijoptimalisatie uitzetten" te kunnen tonen,
          zodat Samsung de dienst niet in slaap brengt. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
@@ -51,14 +66,20 @@
         <service
             android:name=".service.GuardService"
             android:exported="false"
-            android:label="@string/service_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_service_config" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Detecteert welke app de gebruiker opent om vooraf een ademhalingspauze te tonen (digitaal welzijn)." />
         </service>
+
+        <!-- Na een herstart of update de dienst weer starten. -->
+        <receiver
+            android:name=".service.StartReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

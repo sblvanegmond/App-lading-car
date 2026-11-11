@@ -1,7 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Adempauze</string>
-    <string name="service_label">Adempauze</string>
-    <string name="service_summary">Laat een adempauze zien voordat je een gekozen app opent.</string>
-    <string name="service_description">Adempauze ziet welke app op de voorgrond komt. Is dat een app die jij hebt gekozen, zoals YouTube of je werkmail, dan krijg je eerst een korte ademhalingsoefening en een vraag: weet je het zeker?\n\nAdempauze leest geen tekst op je scherm, slaat niets op buiten je telefoon en heeft geen internettoegang.</string>
 </resources>

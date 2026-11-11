@@ -83,20 +83,33 @@ een paar minuten en hoeft maar één keer.
      privacy › Automatische blokkering*, zet het tijdelijk uit, installeer, en
      zet het daarna weer aan.
    - Waarschuwt Play Protect voor een onbekende app: tik op *Meer details ›
-     Toch installeren*. Adempauze heeft geen internettoegang en verstuurt niets.
+     Toch installeren*. Vraagt Play Protect of hij de app mag scannen, dan mag
+     dat. Adempauze heeft geen internettoegang en verstuurt niets.
 3. **Open Adempauze** en tik op *Aan de slag*. De app leidt je door de
-   volgende stappen.
-4. **Toegankelijkheid aanzetten.** *Instellingen › Toegankelijkheid ›
-   Geïnstalleerde apps › Adempauze* › aan.
-5. **Melding "Beperkte instelling"?** Dat krijg je bij apps die niet uit de
-   Play Store komen. Ga naar *Instellingen › Apps › Adempauze*, tik rechtsboven
-   op **⋮** en kies **Beperkte instellingen toestaan**. Doe daarna stap 4
-   opnieuw. (Die optie verschijnt pas nadat Android de schakelaar één keer heeft
-   tegengehouden.)
+   volgende stappen; elke knop opent de juiste pagina in je instellingen.
+4. **Toegang tot gebruiksgegevens.** Zet Adempauze aan in de lijst. Zo ziet
+   de app *welke* app je opent.
+5. **Weergeven boven andere apps.** Zet dit aan voor Adempauze. Zo mag het
+   pauzescherm over de app heen komen.
 6. **Batterij op onbeperkt.** Adempauze vraagt dit zelf. Zo zet Samsung de app
-   niet "in slaap". Het kost vrijwel geen stroom.
+   niet "in slaap".
 7. **Apps kiezen.** Tik op *Apps kiezen*. Bovenaan staan voorstellen zoals
    YouTube, Instagram, Outlook en Gmail.
+
+Is een schakelaar grijs of zie je "Beperkte instelling"? Ga dan naar
+*Instellingen › Apps › Adempauze*, tik rechtsboven op **⋮** en kies **Beperkte
+instellingen toestaan**.
+
+### Waarom geen toegankelijkheidsdienst?
+
+De eerste versie gebruikte de toegankelijkheidsdienst van Android, net als
+one sec. Play Protect blokkeert zulke apps als je ze zelf installeert (via de
+browser, een berichtenapp of bestandsbeheer), omdat oplichters die dienst
+misbruiken. Je krijgt dan alleen een melding met "OK", zonder
+"Toch installeren". Adempauze gebruikt daarom de gebruiksgegevens van Android:
+zolang je scherm aan is, kijkt een achtergronddienst twee keer per seconde
+welke app vooraan staat. Je ziet daarvoor een stille melding "Adempauze is
+actief".
 
 Een nieuwe versie installeer je op dezelfde manier; die gaat over de oude heen
 en je instellingen en statistieken blijven bewaard.
@@ -123,8 +136,9 @@ en je instellingen en statistieken blijven bewaard.
 
 - Geen internettoegang (de app vraagt die toestemming niet eens), geen account,
   geen reclame.
-- De toegankelijkheidsdienst krijgt alleen te horen *welke* app vooraan komt.
-  Hij leest geen tekst op je scherm (`canRetrieveWindowContent="false"`).
+- Adempauze kijkt alleen *welke* app als laatste naar voren kwam. Het leest
+  geen tekst op je scherm, ziet niet wat je in een app doet en kijkt niet als
+  je scherm uit staat.
 - Alles staat in de app-opslag op je telefoon. Statistieken ouder dan 90 dagen
   worden opgeruimd.
 
@@ -132,7 +146,8 @@ en je instellingen en statistieken blijven bewaard.
 
 | Onderdeel | Bestand |
 |---|---|
-| Ziet welke app vooraan komt en legt het pauzescherm eroverheen | `service/GuardService.kt` |
+| Ziet welke app vooraan komt (gebruiksgegevens) en opent het pauzescherm | `service/GuardService.kt` |
+| Start de dienst na herstart of update | `service/StartReceiver.kt` |
 | Beslist of de pauze moet verschijnen (pas, dubbele vensters) | `service/Interceptor.kt` |
 | Het pauzescherm met ademhaling en keuzes | `ui/pause/PauseActivity.kt`, `ui/pause/PauseScreen.kt` |
 | Wachttijd, werktijd, soort app herkennen | `core/Policy.kt` |
@@ -180,5 +195,7 @@ oude versie eerst verwijderen.
   dan loopt die tijd door. Kom je binnen die 5 minuten terug, dan krijg je geen
   nieuwe pauze.
 - Apps in een gesplitst scherm of pop-upvenster worden niet altijd herkend.
-- Wie echt wil, kan de toegankelijkheidsdienst uitzetten. Adempauze maakt het
+- Adempauze kijkt twee keer per seconde; het pauzescherm komt dus binnen
+  ongeveer een halve seconde. Zolang het actief is, staat er een stille melding.
+- Wie echt wil, kan de toestemmingen weer intrekken. Adempauze maakt het
   bewust lastiger in een opwelling, niet onmogelijk.

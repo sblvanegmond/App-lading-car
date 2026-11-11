@@ -18,7 +18,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import nl.adempauze.repository
+import nl.adempauze.service.GuardService
 import nl.adempauze.ui.theme.AdempauzeTheme
 import nl.adempauze.util.Permissions
 
@@ -30,17 +33,23 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        val start = if (!repository.onboardingDone && !Permissions.isServiceEnabled(this)) Route.WELCOME else Route.HOME
+        val start = if (!repository.onboardingDone && !Permissions.isReady(this)) Route.WELCOME else Route.HOME
         setContent {
             AdempauzeTheme {
                 AdempauzeNav(start, resumeTick)
             }
+        }
+        // Apps toegevoegd of aan/uit gezet? Dan de dienst starten of stoppen.
+        lifecycleScope.launch {
+            repository.apps.collect { GuardService.sync(applicationContext) }
         }
     }
 
     override fun onResume() {
         super.onResume()
         resumeTick++
+        // Terug uit de instellingen met een nieuwe toestemming: meteen starten.
+        GuardService.sync(applicationContext)
     }
 }
 

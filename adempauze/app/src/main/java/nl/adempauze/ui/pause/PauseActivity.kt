@@ -27,7 +27,7 @@ import nl.adempauze.util.InstalledApps
 import java.time.LocalDateTime
 
 /**
- * Het pauzescherm. De toegankelijkheidsdienst start het bovenop de app die je
+ * Het pauzescherm. [GuardService] start het bovenop de app die je
  * opent. Na de ademhaling kies je: laten (naar het startscherm) of openen
  * voor een aantal minuten.
  */

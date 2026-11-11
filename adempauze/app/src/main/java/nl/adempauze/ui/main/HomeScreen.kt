@@ -89,7 +89,7 @@ fun HomeScreen(
     val stats by repo.stats.collectAsState()
     val settings by repo.settings.collectAsState()
     val running by GuardService.running.collectAsState()
-    val serviceEnabled = forceServiceEnabled ?: remember(resumeTick, running) { Permissions.isServiceEnabled(context) }
+    val serviceEnabled = forceServiceEnabled ?: remember(resumeTick, running) { Permissions.isReady(context) }
     val batteryOk = forceServiceEnabled ?: remember(resumeTick) { Permissions.isIgnoringBatteryOptimizations(context) }
 
     val today = LocalDate.now()
@@ -216,7 +216,7 @@ private fun SetupNeededCard(onOpenSetup: () -> Unit) {
             Text("Nog één stap", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(6.dp))
             Text(
-                "Zet Adempauze aan bij Toegankelijkheid. Pas dan kan het een pauze laten zien als je een app opent.",
+                "Geef Adempauze twee toestemmingen. Pas dan kan het een pauze laten zien als je een app opent.",
                 style = MaterialTheme.typography.bodyMedium,
             )
             Spacer(Modifier.height(16.dp))

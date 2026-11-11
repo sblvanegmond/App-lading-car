@@ -24,10 +24,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.AccessibilityNew
 import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.QueryStats
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -68,7 +69,7 @@ fun SettingsScreen(resumeTick: Int, onBack: () -> Unit, onOpenSetup: () -> Unit)
     val repo = context.repository
     val settings by repo.settings.collectAsState()
     val running by GuardService.running.collectAsState()
-    val enabled = remember(resumeTick, running) { Permissions.isServiceEnabled(context) }
+    val enabled = remember(resumeTick, running) { Permissions.isReady(context) }
     var editTime by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
@@ -163,7 +164,7 @@ fun SettingsScreen(resumeTick: Int, onBack: () -> Unit, onOpenSetup: () -> Unit)
                     )
                     Spacer(Modifier.width(10.dp))
                     Text(
-                        if (enabled) "Toegankelijkheid staat aan" else "Toegankelijkheid staat uit",
+                        if (enabled) "Alle toestemmingen gegeven" else "Er ontbreekt een toestemming",
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.weight(1f),
                     )
@@ -175,7 +176,7 @@ fun SettingsScreen(resumeTick: Int, onBack: () -> Unit, onOpenSetup: () -> Unit)
             SectionCard(title = "Privacy") {
                 Text(
                     "Adempauze heeft geen internettoegang en geen account. Het ziet alleen de naam van de app die vooraan komt, " +
-                        "leest niets op je scherm en bewaart alles op je telefoon.",
+                        "leest niets op je scherm, kijkt niet als je scherm uit staat en bewaart alles op je telefoon.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -222,8 +223,10 @@ private fun TimeBox(label: String, minute: Int, modifier: Modifier, onClick: () 
 fun SetupScreen(resumeTick: Int, onBack: () -> Unit, forceEnabled: Boolean? = null) {
     val context = LocalContext.current
     val running by GuardService.running.collectAsState()
-    val enabled = forceEnabled ?: remember(resumeTick, running) { Permissions.isServiceEnabled(context) }
+    val usageOk = forceEnabled ?: remember(resumeTick, running) { Permissions.hasUsageAccess(context) }
+    val overlayOk = forceEnabled ?: remember(resumeTick, running) { Permissions.canDrawOverlays(context) }
     val batteryOk = forceEnabled ?: remember(resumeTick) { Permissions.isIgnoringBatteryOptimizations(context) }
+    val ready = usageOk && overlayOk
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -247,14 +250,14 @@ fun SetupScreen(resumeTick: Int, onBack: () -> Unit, forceEnabled: Boolean? = nu
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                "Adempauze gebruikt de toegankelijkheidsfunctie van Android om te zien wélke app je opent. " +
-                    "Het leest geen tekst op je scherm en heeft geen internet.",
+                "Twee toestemmingen, dan werkt het. Elke knop opent de juiste pagina in je instellingen; " +
+                    "zet daar Adempauze aan en ga terug.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 4.dp),
             )
 
-            if (enabled) {
+            if (ready) {
                 Card(
                     shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -273,34 +276,52 @@ fun SetupScreen(resumeTick: Int, onBack: () -> Unit, forceEnabled: Boolean? = nu
 
             SetupStep(
                 number = 1,
-                icon = Icons.Rounded.AccessibilityNew,
-                done = enabled,
-                title = "Zet Adempauze aan bij Toegankelijkheid",
-                text = "Instellingen › Toegankelijkheid › Geïnstalleerde apps › Adempauze › aanzetten en toestaan.",
-                action = if (enabled) null else "Toegankelijkheid openen",
-                onAction = { Permissions.openAccessibilitySettings(context) },
+                icon = Icons.Rounded.QueryStats,
+                done = usageOk,
+                title = "Toegang tot gebruiksgegevens",
+                text = "Zo ziet Adempauze wélke app je opent. Het ziet alleen de naam van de app, niet wat je erin doet. " +
+                    "Zet in de lijst Adempauze aan.",
+                action = if (usageOk) null else "Gebruiksgegevens openen",
+                onAction = { Permissions.openUsageAccessSettings(context) },
             )
             SetupStep(
                 number = 2,
-                icon = Icons.Rounded.Lock,
-                done = enabled,
-                title = "Melding ‘Beperkte instelling’?",
-                text = "Omdat je Adempauze zelf hebt geïnstalleerd, houdt Android de schakelaar eerst tegen. " +
-                    "Open App-info, tik rechtsboven op ⋮ en kies ‘Beperkte instellingen toestaan’. Doe daarna stap 1 opnieuw.\n\n" +
-                    "Zie je die optie niet? Probeer dan eerst stap 1; de optie verschijnt pas nadat Android de schakelaar één keer heeft tegengehouden.",
-                action = if (enabled) null else "App-info openen",
-                onAction = { Permissions.openAppInfo(context) },
+                icon = Icons.Rounded.Layers,
+                done = overlayOk,
+                title = "Weergeven boven andere apps",
+                text = "Zo mag Adempauze het pauzescherm over de app heen leggen die je opent.",
+                action = if (overlayOk) null else "Toestemming geven",
+                onAction = { Permissions.openOverlaySettings(context) },
             )
             SetupStep(
                 number = 3,
                 icon = Icons.Rounded.BatteryChargingFull,
                 done = batteryOk,
                 title = "Batterij: onbeperkt (aangeraden)",
-                text = "Samsung zet apps die je weinig opent soms ‘in slaap’. Met onbeperkt batterijgebruik blijft Adempauze altijd werken. " +
-                    "Het kost vrijwel geen stroom: de app doet alleen iets als je een app opent.",
+                text = "Samsung zet apps die je weinig opent soms ‘in slaap’. Met onbeperkt batterijgebruik blijft Adempauze werken. " +
+                    "Het kost weinig stroom: Adempauze kijkt alleen als je scherm aan is.",
                 action = if (batteryOk) null else "Toestaan",
                 onAction = { Permissions.requestIgnoreBatteryOptimizations(context) },
             )
+            if (!ready) {
+                SectionCard {
+                    Row(verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Rounded.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Is de schakelaar grijs of zie je ‘Beperkte instelling’?", style = MaterialTheme.typography.titleSmall)
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Open App-info, tik rechtsboven op ⋮ en kies ‘Beperkte instellingen toestaan’. Probeer het daarna opnieuw.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedButton(onClick = { Permissions.openAppInfo(context) }) { Text("App-info openen") }
+                        }
+                    }
+                }
+            }
             Spacer(Modifier.height(16.dp))
         }
     }

@@ -16,7 +16,7 @@ import java.time.LocalDate
 /**
  * Alles wat Adempauze bewaart, in één plek. Het staat in SharedPreferences op
  * de telefoon; er gaat niets naar internet. De hoofdschermen en de
- * toegankelijkheidsdienst draaien in hetzelfde proces en delen deze instantie.
+ * achtergronddienst draaien in hetzelfde proces en delen deze instantie.
  */
 class Repository(context: Context) {
 
